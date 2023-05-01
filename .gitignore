@@ -1,0 +1,2 @@
+# Ignorar el archivo de configuración que contiene la clave secreta
+config.js

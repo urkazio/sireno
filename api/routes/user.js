@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const config = require('../../config'); // importar el fichero que contiene la clave secreta para el token
 
 const mysqlConntection = require('../connection/connection'); //importar la conexion a la base de datos
 
@@ -18,7 +19,8 @@ router.post('/signin', (req,res)=>{
             if(rows.length>0){
                 //si el usuario existe hay que crear el token (para usar en angular)
                 let userdata = JSON.stringify(rows[0]); // obetener el string de la respuesta de la peticion
-                const token = jwt.sign(userdata, 'secretisimo666'); //jwt.sign(string, secret)
+                const secretKey = config.secretKey;
+                const token = jwt.sign(userdata, secretKey); //jwt.sign(string, secret)
                 res.json(token);  // devolver el token como respuesta
             }
             else{
@@ -64,7 +66,8 @@ function verifyToken(req,res,next){
             res.status(401).json('Token vacío');
 
         }else{
-            const content = jwt.verify(token, 'secretisimo666'); //decodifica el token devolviendo los datos originales
+            const secretKey = config.secretKey;
+            const content = jwt.verify(token, secretKey); //decodifica el token devolviendo los datos originales
             console.log(content);
             req.data = content; // colocar en el cuerpo del mensaje el token decodificado
             next(); //seguir con la ejecucion del metodo llamador
