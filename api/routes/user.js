@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const config = require('../../config'); // importar el fichero que contiene la clave secreta para el token
+const CryptoJS = require("crypto-js");
+
+
 
 const mysqlConntection = require('../connection/connection'); //importar la conexion a la base de datos
 
@@ -9,10 +12,14 @@ const jwt = require('jsonwebtoken');
 
 
 router.post('/signin', (req,res)=>{
+
     const {user, pass} = req.body;
 
+    const iterations = 1000;
+    const hash = CryptoJS.PBKDF2(pass, config.saltHash, { keySize: 256/32, iterations });
+
     mysqlConntection.query('select usuario,rol from usuarios where usuario=? and contrasena=?', //utilizar interrogantes para evitar inyeccion (docuemntacion mysql)
-    [user, pass],  //reemplazar las interrogantes por sus valores
+    [user, hash.toString()],  //reemplazar las interrogantes por sus valores
 
     (err,rows,fields)=>{
         if (!err){
