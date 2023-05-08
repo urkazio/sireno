@@ -1,87 +1,39 @@
 const express = require('express');
 const router = express.Router();
+const dbQuery = require('../database/dbQuerys'); // Importa el archivo "dbQuery.js"
 const config = require('../../config'); // importar el fichero que contiene la clave secreta para el token
-const CryptoJS = require("crypto-js");
-
-
-
-const mysqlConntection = require('../connection/connection'); //importar la conexion a la base de datos
-
 const jwt = require('jsonwebtoken');
 
 
 
-router.post('/signin', (req,res)=>{
-
-    const {user, pass} = req.body;
-
-    const iterations = 1000;
-    const hash = CryptoJS.PBKDF2(pass, config.saltHash, { keySize: 256/32, iterations });
-
-    mysqlConntection.query('select usuario,rol from usuarios where usuario=? and contrasena=?', //utilizar interrogantes para evitar inyeccion (docuemntacion mysql)
-    [user, hash.toString()],  //reemplazar las interrogantes por sus valores
-
-    (err,rows,fields)=>{
-        if (!err){
-            if(rows.length>0){
-                //si el usuario existe hay que crear el token (para usar en angular)
-                let userdata = JSON.stringify(rows[0]); // obetener el string de la respuesta de la peticion
-                const secretKey = config.secretKey;
-                const token = jwt.sign(userdata, secretKey); //jwt.sign(string, secret)
-                res.json(token);  // devolver el token como respuesta
-            }
-            else{
-                // si la respuesta es vacia (no existe el usuario)
-                res.json('Usuario o clave incorrectos')
-            }
-        }else{
-            console.log(err);
-        }
+// metodo que verifica credenciales llamando a la bbdd
+router.post('/signin', (req, res) => {
+    const { user, pass } = req.body;
+  
+    dbQuery.getUser(user, pass, (err, token) => {
+      if (!err) {
+        res.json(token);
+      } else {
+        res.json(err);
+      }
     });
-});
+  });
 
 
 
-router.post('/test',verifyToken, (req,res)=>{ // esta funcion usa el middleware verifyToken()
+router.post('/test', (req, res) => {
 
-    if (req.data.rol === 'docente'){
-        res.json('Informacion secreta para docente');
+    if (req.data.rol === '0'){
+        return res.status(200).json('Informacion secreta para docente');
 
-    }else if (req.data.rol === 'alumno'){
-        res.json('Informacion secreta para alumno');
+    }else if (req.data.rol === '1'){
+        return res.status(200).json('Informacion secreta para alumno');
 
-    }else if (req.data.rol === 'admin'){
-        res.json('Informacion secreta para admin');
+    }else if (req.data.rol === '2'){
+        return res.status(200).json('Informacion secreta para admin');
 
     }
 });
-
-
-
-// funcion que verifica si se envia un token junto a la peticion y ademas es válido
-function verifyToken(req,res,next){
-
-    if(!req.headers.authorization){
-        return res.status(401).json('No autorizado')
-
-    }else{
-        // siguiendo la documentacion, el token tiene esta forma --> BEARER fbuweifewfndiweo ...
-        // hay que quitar la palabra BEARER y el espacio en blanco
-        const token = req.headers.authorization.substring(7);
-
-        if (token==''){
-            res.status(401).json('Token vacío');
-
-        }else{
-            const secretKey = config.secretKey;
-            const content = jwt.verify(token, secretKey); //decodifica el token devolviendo los datos originales
-            console.log(content);
-            req.data = content; // colocar en el cuerpo del mensaje el token decodificado
-            next(); //seguir con la ejecucion del metodo llamador
-        }
-    }
-
-}
 
 
 
