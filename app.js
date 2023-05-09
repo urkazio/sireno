@@ -14,7 +14,8 @@ app.use(cors());
 // RUTAS
 
 const userRoute = require('./api/routes/user');
-app.use('/user', tokenVerifier.verifyToken, userRoute);
+//app.use('/user', tokenVerifier.verifyToken, userRoute);
+app.use('/user', userRoute);
 
 
 module.exports = app;

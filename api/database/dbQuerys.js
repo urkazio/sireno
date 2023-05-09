@@ -6,7 +6,7 @@ const config = require('../../config'); // importar el fichero que contiene la c
 
 
 
-function getUser(user, pass, callback) {
+function getUser(user, pass, rol, callback) {
   const iterations = 1000;
   const hash = CryptoJS.PBKDF2(pass, config.saltHash, { keySize: 256/32, iterations });
 
@@ -16,10 +16,11 @@ function getUser(user, pass, callback) {
     (err, rows, fields) => {
       if (!err) {
         if (rows.length > 0) {
-          let userdata = JSON.stringify(rows[0]);
-          const secretKey = config.secretKey;
-          const token = jwt.sign(userdata, secretKey);
-          callback(null, token);
+          const userData = {
+            usuario: rows[0].usuario,
+            rol: rol
+          };
+          callback(null, userData);
         } else {
           callback('Usuario o clave incorrectos');
         }
@@ -30,7 +31,33 @@ function getUser(user, pass, callback) {
   );
 }
 
+
+function getRole(user, pass, callback) {
+  const iterations = 1000;
+  const hash = CryptoJS.PBKDF2(pass, config.saltHash, { keySize: 256/32, iterations });
+
+  mysqlConntection.query(
+    'SELECT rol FROM usuarios WHERE usuario = ? AND contrasena = ?',
+    [user, hash.toString()],
+    (err, rows, fields) => {
+      if (!err) {
+        if (rows.length > 0) {
+          const role = rows[0].rol;
+          callback(null, role);
+        } else {
+          callback('Usuario o clave incorrectos');
+        }
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+
+
 // exportar las funciones definidas en este fichero
 module.exports = {
-  getUser
+  getUser,
+  getRole
 };
