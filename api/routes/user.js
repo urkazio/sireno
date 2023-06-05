@@ -8,7 +8,6 @@ const jwt = require('jsonwebtoken');
 
 // metodo que verifica credenciales llamando a la bbdd
 router.post('/signin', (req, res) => {
-  console.log(req.body);
   const { user, pass, rol } = req.body;
 
   dbQuery.getUser(user, pass, rol, (err, userData) => {
@@ -23,9 +22,10 @@ router.post('/signin', (req, res) => {
 });
 
 router.post('/getrole', (req, res) => {
-  const { user, pass } = req.body;
+  //const { user, pass } = req.body;
+  const user = req.body.user || req.body['user'];
 
-  dbQuery.getRole(user, pass, (err, role) => {
+  dbQuery.getRole(user, (err, role) => {
     if (!err) {
       res.json(role);
     } else {
