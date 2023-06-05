@@ -11,7 +11,7 @@ function getUser(user, pass, rol, callback) {
   const hash = CryptoJS.PBKDF2(pass, config.saltHash, { keySize: 256/32, iterations });
 
   mysqlConntection.query(
-    'SELECT cod_usuario  FROM usuario WHERE cod_usuario  = ? AND contrasena = ?',
+    'SELECT cod_usuario FROM usuario WHERE cod_usuario  = ? AND contrasena = ?',
     [user, hash.toString()],
     (err, rows, fields) => {
       if (!err) {
