@@ -20,12 +20,47 @@ function verifyToken(req, res, next) {
         }else{
             const secretKey = config.secretKey;
             const content = jwt.verify(token, secretKey); //decodifica el token devolviendo los datos originales
-            console.log(content);
-            req.data = content; // colocar en el cuerpo del mensaje el token decodificado
+            req.body = content; // colocar en el cuerpo del mensaje el token decodificado
+            console.log("req.data "+req.body.rol + " " +req.body.usuario);
             next(); //seguir con la ejecucion del metodo llamador
         }
     }
 
 }
 
-module.exports = { verifyToken: verifyToken };
+
+function verifyDocente(req, res, next){
+    const { rol } = req.body;
+
+    if (rol !== "0") {
+        return res.status(401).json('No autorizado 0')
+    }
+    console.log("es docente");
+    next();
+}
+
+function verifyAlumno(req, res, next){
+    const { rol } = req.body;
+
+    if (rol !== "1") {
+        return res.status(401).json('No autorizado 1')
+    }
+    console.log("es alumno");
+    next();
+}
+
+function verifyAdmin(req, res, next){
+    const { rol } = req.body;
+
+    if (rol !== "2") {
+        return res.status(401).json('No autorizado 2')
+    }
+    console.log("es admin");
+    next();
+}
+
+module.exports = { verifyToken: 
+    verifyToken, 
+    verifyAlumno,
+    verifyDocente,
+    verifyAdmin };

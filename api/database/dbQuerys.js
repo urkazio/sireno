@@ -1,6 +1,5 @@
 const mysqlConntection = require('./connection'); // Importa tu archivo de conexión a MySQL
 const CryptoJS = require("crypto-js");
-const jwt = require('jsonwebtoken');
 const config = require('../../config'); // importar el fichero que contiene la clave secreta para el token
 
 
@@ -17,7 +16,7 @@ function getUser(user, pass, rol, callback) {
       if (!err) {
         if (rows.length > 0) {
           const userData = {
-            usuario: rows[0].usuario,
+            usuario: rows[0].cod_usuario,
             rol: rol
           };
           callback(null, userData);
@@ -30,7 +29,6 @@ function getUser(user, pass, rol, callback) {
     }
   );
 }
-
 
 function getRole(user, callback) {
 
@@ -52,10 +50,51 @@ function getRole(user, callback) {
   );
 }
 
+// funcion que dado un usuario, obteiene las situaciones docentes de dicho usuario
+// y con los ids de cada SD rescata las campanas validas segun la fecha actual
+function getCampanasValidasPorUsuario(usuario, callback) {
+  const query = `
+    SELECT c.cod_campana, c.nombre, c.fecha_fin, c.abierta_antes, c.cod_encuesta,
+           sd.cod_situacion_docente, sd.cod_asignatura, a.nombre_asignatura, sd.cod_docente, d.nombre_docente,
+           sd.num_curso
+    FROM campana AS c
+    JOIN situacion_docente AS sd ON c.cod_campana = sd.cod_campana
+    JOIN alumno_situacion_doc AS asd ON sd.cod_situacion_docente = asd.cod_situacion_docente
+    JOIN asignatura AS a ON sd.cod_asignatura = a.cod_asignatura
+    JOIN docente AS d ON sd.cod_docente = d.cod_docente
+    WHERE asd.cod_alumno = ?
+    AND c.fecha_ini <= NOW()
+    AND c.fecha_fin >= NOW()
+  `;
 
+  mysqlConntection.query(query, [usuario], (err, rows, fields) => {
+    if (!err) {
+      const campanasValidas = rows.map((row) => {
+        return {
+          cod_campana: row.cod_campana,
+          nombre_campana: row.nombre,
+          fecha_fin: row.fecha_fin,
+          abierta_antes: row.abierta_antes,
+          cod_encuesta: row.cod_encuesta,
+          cod_situacion_docente: row.cod_situacion_docente,
+          cod_asignatura: row.cod_asignatura,
+          nombre_asignatura: row.nombre_asignatura,
+          cod_docente: row.cod_docente,
+          nombre_docente: row.nombre_docente,
+          num_curso: row.num_curso
+        };
+      });
+      console.log(campanasValidas);
+      callback(null, campanasValidas);
+    } else {
+      callback(err);
+    }
+  });
+}
 
 // exportar las funciones definidas en este fichero
 module.exports = {
   getUser,
-  getRole
+  getRole,
+  getCampanasValidasPorUsuario
 };

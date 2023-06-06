@@ -36,23 +36,5 @@ router.post('/getrole', (req, res) => {
 
 
 
-
-
-router.post('/test', (req, res) => {
-
-    if (req.data.rol === '0'){
-        return res.status(200).json('Informacion secreta para docente');
-
-    }else if (req.data.rol === '1'){
-        return res.status(200).json('Informacion secreta para alumno');
-
-    }else if (req.data.rol === '2'){
-        return res.status(200).json('Informacion secreta para admin');
-
-    }
-});
-
-
-
 // se exporta el ruter del usuario para poder usarlo desde app.js (todas las rutas)
 module.exports = router;
