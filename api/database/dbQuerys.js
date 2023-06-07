@@ -50,21 +50,20 @@ function getRole(user, callback) {
   );
 }
 
-// funcion que dado un usuario, obteiene las situaciones docentes de dicho usuario
-// y con los ids de cada SD rescata las campanas validas segun la fecha actual
 function getCampanasValidasPorUsuario(usuario, callback) {
   const query = `
     SELECT c.cod_campana, c.nombre, c.fecha_fin, c.abierta_antes, c.cod_encuesta,
            sd.cod_situacion_docente, sd.cod_asignatura, a.nombre_asignatura, sd.cod_docente, d.nombre_docente,
-           sd.num_curso
+           sd.num_curso, sd.año_curso, ac.fecha_hora_cierre
     FROM campana AS c
     JOIN situacion_docente AS sd ON c.cod_campana = sd.cod_campana
     JOIN alumno_situacion_doc AS asd ON sd.cod_situacion_docente = asd.cod_situacion_docente
     JOIN asignatura AS a ON sd.cod_asignatura = a.cod_asignatura
     JOIN docente AS d ON sd.cod_docente = d.cod_docente
+    LEFT JOIN activacion_campana AS ac ON sd.cod_situacion_docente = ac.cod_situacion_docente
     WHERE asd.cod_alumno = ?
     AND c.fecha_ini <= NOW()
-    AND c.fecha_fin >= NOW()
+    AND (c.abierta_antes = 0 AND c.fecha_fin >= NOW() OR c.abierta_antes = 1 AND ac.fecha_hora_cierre >= NOW())
   `;
 
   mysqlConntection.query(query, [usuario], (err, rows, fields) => {
@@ -81,16 +80,23 @@ function getCampanasValidasPorUsuario(usuario, callback) {
           nombre_asignatura: row.nombre_asignatura,
           cod_docente: row.cod_docente,
           nombre_docente: row.nombre_docente,
-          num_curso: row.num_curso
+          num_curso: row.num_curso,
+          año_curso: row.año_curso,
+          fecha_fin_activacion: row.fecha_hora_cierre
         };
       });
-      console.log(campanasValidas);
+      
       callback(null, campanasValidas);
     } else {
       callback(err);
     }
   });
 }
+
+
+
+
+
 
 // exportar las funciones definidas en este fichero
 module.exports = {
