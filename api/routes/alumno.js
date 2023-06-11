@@ -1,21 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const dbQuery = require('../database/dbQuerys'); // Importa el archivo "dbQuery.js"
-const tokenVerifier = require('../../tokenVerifier'); // Importar el middleware verifyToken
-
-
-
+const mysqlConnection = require('../database/dbQuerys');
 
 
 // metodo que verifica credenciales llamando a la bbdd
 router.post('/getCampannas', (req, res) => {
-  const { usuario, rol } = req.body;
-  console.log("datos:" +usuario +" "+ rol);
+  const { usuario } = req.body;
 
-
-  dbQuery.getCampanasValidasPorUsuario(usuario, (err, campanasValidas) => {
+  mysqlConnection.getCampanasValidasPorUsuario(usuario, (err, campanasValidas) => {
     if (!err) {
-      
       // ordenar: primero las abiertas y ordenadas a su vez por fecha próxima 
       campanasValidas.sort(compararCampanas);
       res.json(campanasValidas);
@@ -46,6 +39,21 @@ function compararCampanas(a, b) {
   return diferenciaA - diferenciaB;
 }
 
+
+// metodo que verifica credenciales llamando a la bbdd
+router.post('/getEncuesta', (req, res) => {
+  const { cod_encuesta, idioma } = req.body;
+  console.log(cod_encuesta + " " +idioma);
+
+  mysqlConnection.getPreguntasEncuesta(cod_encuesta, idioma, (err, encuesta) => {
+    if (!err) {
+      console.log(encuesta)
+      res.json(encuesta);
+    } else {
+      res.json(err);
+    }
+  });
+});
 
 
 // se exporta el ruter del usuario para poder usarlo desde app.js (todas las rutas)

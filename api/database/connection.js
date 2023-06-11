@@ -1,6 +1,6 @@
 const mysql = require('mysql')
 
-const mysqlConntection = mysql.createPool({
+const mysqlConnection = mysql.createPool({
     host:'localhost',
     user: 'root',
     password: '',
@@ -9,7 +9,7 @@ const mysqlConntection = mysql.createPool({
 });
  
 // Ping database to check for common exception errors.
-mysqlConntection.getConnection((err, connection) => {
+mysqlConnection.getConnection((err, connection) => {
     if (err) {
         if (err.code === 'PROTOCOL_CONNECTION_LOST') {
             console.error('Database connection was closed.')
@@ -30,4 +30,4 @@ mysqlConntection.getConnection((err, connection) => {
     return
 })
 
-module.exports = mysqlConntection
+module.exports = mysqlConnection

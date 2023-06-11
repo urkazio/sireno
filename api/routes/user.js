@@ -23,7 +23,7 @@ router.post('/signin', (req, res) => {
 
 router.post('/getrole', (req, res) => {
   //const { user, pass } = req.body;
-  const user = req.body.user || req.body['user'];
+  const { user } = req.body;
 
   dbQuery.getRole(user, (err, role) => {
     if (!err) {

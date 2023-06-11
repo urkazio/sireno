@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 
 
 function verifyToken(req, res, next) {
-
+    
     if(!req.headers.authorization){
         return res.status(401).json('No autorizado')
 
@@ -20,8 +20,7 @@ function verifyToken(req, res, next) {
         }else{
             const secretKey = config.secretKey;
             const content = jwt.verify(token, secretKey); //decodifica el token devolviendo los datos originales
-            req.body = content; // colocar en el cuerpo del mensaje el token decodificado
-            console.log("req.data "+req.body.rol + " " +req.body.usuario);
+            req.body = Object.assign({}, req.body, content); // concatenar en el cuerpo del mensaje el token decodificado
             next(); //seguir con la ejecucion del metodo llamador
         }
     }
