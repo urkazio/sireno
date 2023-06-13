@@ -128,8 +128,10 @@ function getPreguntasEncuesta(cod_encuesta, idioma, callback) {
                 if (err) {
                   reject(err);
                 } else {
-                  const respuestas = rows.map((respuesta) => respuesta.cod_respuesta_numerica);
-                  resolve({ ...pregunta, respuestas });
+                  const respuestas = rows.map((respuesta) => ({
+                    cod_respuesta: respuesta.cod_respuesta_numerica,
+                    texto: respuesta.cod_respuesta_numerica,
+                  }));resolve({ ...pregunta, respuestas });
                 }
               }
             );
@@ -138,7 +140,7 @@ function getPreguntasEncuesta(cod_encuesta, idioma, callback) {
           // Pregunta verbal, obtener las respuestas de respuesta_verbal y texto_respuesta en el idioma especificado
           return new Promise((resolve, reject) => {
             mysqlConnection.query(
-              `SELECT tr.cod_texto_respuesta, tr.texto
+              `SELECT tr.cod_respuesta_verbal, tr.texto
               FROM respuesta_verbal rv
               JOIN texto_respuesta tr ON rv.cod_respuesta_verbal = tr.cod_respuesta_verbal
               WHERE rv.cod_pregunta = ? AND tr.cod_idioma = ?`,
@@ -148,7 +150,7 @@ function getPreguntasEncuesta(cod_encuesta, idioma, callback) {
                   reject(err);
                 } else {
                   const respuestas = rows.map((respuesta) => ({
-                    cod_respuesta: respuesta.cod_texto_respuesta,
+                    cod_respuesta: respuesta.cod_respuesta_verbal,
                     texto: respuesta.texto,
                   }));
                   resolve({ ...pregunta, respuestas });
@@ -171,6 +173,24 @@ function getPreguntasEncuesta(cod_encuesta, idioma, callback) {
   );
 }
 
+function getSDsAlumno(user, callback) {
+  mysqlConnection.query(
+    'SELECT cod_situacion_docente FROM alumno_situacion_doc WHERE cod_alumno  = ?',
+    [user],
+    (err, rows, fields) => {
+      if (!err) {
+        if (rows.length > 0) {
+          const situaciones_docentes = rows.map(row => row.cod_situacion_docente);
+          callback(null, situaciones_docentes);
+        } else {
+          callback('Usuario o clave incorrectos');
+        }
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
 
 
 
@@ -181,5 +201,6 @@ module.exports = {
   getUser,
   getRole,
   getCampanasValidasPorUsuario,
-  getPreguntasEncuesta
+  getPreguntasEncuesta,
+  getSDsAlumno
 };

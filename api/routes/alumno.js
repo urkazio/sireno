@@ -43,12 +43,26 @@ function compararCampanas(a, b) {
 // metodo que verifica credenciales llamando a la bbdd
 router.post('/getEncuesta', (req, res) => {
   const { cod_encuesta, idioma } = req.body;
-  console.log(cod_encuesta + " " +idioma);
 
   mysqlConnection.getPreguntasEncuesta(cod_encuesta, idioma, (err, encuesta) => {
     if (!err) {
-      console.log(encuesta)
       res.json(encuesta);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+
+// metodo que verifica credenciales llamando a la bbdd
+router.post('/getSDsAlumno', (req, res) => {
+  const { usuario } = req.body;
+  console.log(usuario)
+
+  mysqlConnection.getSDsAlumno(usuario, (err, situaciones_docentes) => {
+    if (!err) {
+      console.log(situaciones_docentes)
+      res.json(situaciones_docentes);
     } else {
       res.json(err);
     }
