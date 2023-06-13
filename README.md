@@ -25,4 +25,4 @@ Este proyecto se centra en el desarrollo del backend de la aplicación web, prop
 - El servidor estará disponible en la dirección local http://localhost:3000/.
 
 ## Contacto
-[Contáctame por correo electrónico](urkoupv@gmail.com)
+urkoupv@gmail.com
