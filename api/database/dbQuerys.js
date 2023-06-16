@@ -52,7 +52,7 @@ function getRole(user, callback) {
 
 function getCampanasValidasPorUsuario(usuario, callback) {
   const query = `
-    SELECT c.cod_campana, c.nombre, c.fecha_fin, c.abierta_antes, c.cod_encuesta,
+    SELECT c.cod_campana, c.nombre, c.fecha_fin, sd.activada, c.cod_encuesta,
            sd.cod_situacion_docente, sd.cod_asignatura, a.nombre_asignatura, sd.cod_docente, d.nombre_docente,
            sd.num_curso, c.año_curso, ac.fecha_hora_cierre
     FROM campana AS c
@@ -63,7 +63,7 @@ function getCampanasValidasPorUsuario(usuario, callback) {
     LEFT JOIN activacion_campana AS ac ON sd.cod_situacion_docente = ac.cod_situacion_docente
     WHERE asd.cod_alumno = ?
     AND c.fecha_ini <= NOW()
-    AND (c.abierta_antes = 0 AND c.fecha_fin >= NOW() OR c.abierta_antes = 1 AND ac.fecha_hora_cierre >= NOW())
+    AND (sd.activada = 0 AND c.fecha_fin >= NOW() OR sd.activada = 1 AND ac.fecha_hora_cierre >= NOW())
   `;
 
   mysqlConnection.query(query, [usuario], (err, rows, fields) => {
@@ -73,7 +73,7 @@ function getCampanasValidasPorUsuario(usuario, callback) {
           cod_campana: row.cod_campana,
           nombre_campana: row.nombre,
           fecha_fin: row.fecha_fin,
-          abierta_antes: row.abierta_antes,
+          abierta_antes: row.activada,
           cod_encuesta: row.cod_encuesta,
           cod_situacion_docente: row.cod_situacion_docente,
           cod_asignatura: row.cod_asignatura,
@@ -96,7 +96,7 @@ function getCampanasValidasPorUsuario(usuario, callback) {
 
 function getPreguntasEncuesta(cod_encuesta, idioma, callback) {
   mysqlConnection.query(
-    `SELECT pe.cod_pregunta, tp.cod_texto_pregunta, tp.texto, p.numerica
+    `SELECT pe.cod_pregunta, tp.texto, p.numerica
     FROM pregunta_en_encuesta pe
     JOIN texto_pregunta tp ON pe.cod_pregunta = tp.cod_pregunta
     JOIN pregunta p ON pe.cod_pregunta = p.cod_pregunta
@@ -112,7 +112,6 @@ function getPreguntasEncuesta(cod_encuesta, idioma, callback) {
       const result = rows.map((row) => {
         const pregunta = {
           cod_pregunta: row.cod_pregunta,
-          cod_texto_pregunta: row.cod_texto_pregunta,
           texto_pregunta: row.texto,
         };
 
