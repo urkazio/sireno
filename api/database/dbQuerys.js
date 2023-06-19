@@ -50,6 +50,9 @@ function getRole(user, callback) {
   );
 }
 
+//---------------------------------- alumnos ----------------------------------------------
+
+
 function getCampanasValidasPorUsuario(usuario, callback) {
   const query = `
     SELECT c.cod_campana, c.nombre, c.fecha_fin, sd.activada, c.cod_encuesta,
@@ -254,6 +257,21 @@ function setRespuestas(cod_situacion_docente, respuestas, callback) {
   executeQueries(0);
 }
 
+function updateNumAlumRespond(cod_situacion_docente, callback) {
+  mysqlConnection.query(
+    'UPDATE situacion_docente SET n_alum_respondido = n_alum_respondido + 1 WHERE cod_situacion_docente = ?',
+    [cod_situacion_docente],
+    (err, rows, fields) => {
+      if (!err) {
+        callback(null);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+
 
 function deleteSDAlumno(user, situacion_docente, callback) {
   mysqlConnection.query(
@@ -273,6 +291,54 @@ function deleteSDAlumno(user, situacion_docente, callback) {
   );
 }
 
+//---------------------------------- docentes ----------------------------------------------
+
+function getCampannasValidasDocente(user, callback) {
+  const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+  const query = `
+    SELECT sd.cod_situacion_docente, sd.n_alum_total, sd.n_alum_respondido, a.nombre_Asignatura, c.fecha_fin, sd.num_curso, c.año_curso, sd.activada, sd.agrupado_con
+    FROM situacion_docente sd
+    INNER JOIN campana c ON sd.cod_campana = c.cod_campana
+    JOIN asignatura AS a ON sd.cod_asignatura = a.cod_asignatura
+    WHERE sd.cod_docente = ? AND
+    '${currentDate}' BETWEEN c.fecha_ini AND c.fecha_fin
+  `;
+
+  mysqlConnection.query(query, [user], (err, rows, fields) => {
+    if (!err) {
+      const situacionesDocentes = []; // Array para almacenar las situaciones docentes individuales
+      const agrupados = {}; // Objeto para almacenar las situaciones docentes agrupadas
+
+      // Recorre las filas de resultados y separa las situaciones docentes agrupadas de las no agrupadas
+      rows.forEach(row => {
+        const { cod_situacion_docente, agrupado_con } = row;
+        if (agrupado_con) {
+          if (agrupados[agrupado_con]) {
+            agrupados[agrupado_con].push(cod_situacion_docente);
+          } else {
+            agrupados[agrupado_con] = [cod_situacion_docente];
+          }
+        } else {
+          situacionesDocentes.push(row);
+        }
+      });
+
+      const result = situacionesDocentes.map(row => {
+        const { cod_situacion_docente } = row;
+        // Si hay situaciones docentes agrupadas para esta situación docente individual, se agrega la propiedad 'agrupado_con'
+        if (agrupados[cod_situacion_docente]) {
+          row.agrupado_con = agrupados[cod_situacion_docente];
+        }
+        return row;
+      });
+
+      callback(null, result);
+    } else {
+      callback(err);
+    }
+  });
+}
 
 
 
@@ -286,5 +352,7 @@ module.exports = {
   getSDsAlumno,
   deleteSDAlumno,
   isActiva,
-  setRespuestas
+  setRespuestas,
+  updateNumAlumRespond,
+  getCampannasValidasDocente
 };

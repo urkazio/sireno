@@ -95,12 +95,18 @@ router.post('/setRespuestas', (req, res) => {
           if (!err) {
             if (isActive) {
               // introducir las respuestas del alumno en la BBDD
-              mysqlConnection.setRespuestas(cod_situacion_docente, respuestas, (err, resultado) => {
+              mysqlConnection.setRespuestas(cod_situacion_docente, respuestas, (err) => {
                 if (!err) {
-                  // borrar al alumno de la situacion docente pendiente
-                  mysqlConnection.deleteSDAlumno(usuario, cod_situacion_docente, (err, resultado) => {
+                  mysqlConnection.updateNumAlumRespond(cod_situacion_docente, (err) => {
                     if (!err) {
-                      res.json(resultado);
+                      // borrar al alumno de la situacion docente pendiente
+                      mysqlConnection.deleteSDAlumno(usuario, cod_situacion_docente, (err, resultado) => {
+                        if (!err) {
+                          res.json(resultado);
+                        } else {
+                          res.json(err);
+                        }
+                      });
                     } else {
                       res.json(err);
                     }
