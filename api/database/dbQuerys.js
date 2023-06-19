@@ -113,6 +113,7 @@ function getPreguntasEncuesta(cod_encuesta, idioma, callback) {
         const pregunta = {
           cod_pregunta: row.cod_pregunta,
           texto_pregunta: row.texto,
+          numerica: row.numerica
         };
 
         if (row.numerica) {
@@ -192,6 +193,87 @@ function getSDsAlumno(user, callback) {
 }
 
 
+function isActiva(cod_situacion_docente, callback) {
+  const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+  mysqlConnection.query(
+    'SELECT * FROM activacion_campana WHERE cod_situacion_docente = ? AND fecha_hora_ini < ? AND fecha_hora_cierre > ?',
+    [cod_situacion_docente, currentDate, currentDate],
+    (err, rows, fields) => {
+      if (!err) {
+        const isActive = rows.length > 0;
+        callback(null, isActive);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+
+
+function setRespuestas(cod_situacion_docente, respuestas, callback) {
+  const queries = [];
+  
+  for (let i = 0; i < respuestas.length; i++) {
+    const respuesta = respuestas[i];
+    
+    if (respuesta.numerica === 1) {
+      const query = `INSERT INTO respuesta_numerica_alumnos (cod_situacion_docente, cod_respuesta_numerica, cod_pregunta, cuantos)
+                     VALUES (?, ?, ?, 1)
+                     ON DUPLICATE KEY UPDATE cuantos = cuantos + 1`;
+      queries.push({query, params: [cod_situacion_docente, respuesta.cod_respuesta, respuesta.cod_pregunta]});
+
+    } else {
+      const query = `INSERT INTO respuesta_verbal_alumnos (cod_situacion_docente, cod_respuesta_verbal, cuantos)
+                     VALUES (?, ?, 1)
+                     ON DUPLICATE KEY UPDATE cuantos = cuantos + 1`;
+      queries.push({query,params: [cod_situacion_docente, respuesta.cod_respuesta]});
+    }
+  }
+  
+  // Las consultas se ejecutan en serie utilizando una función recursiva llamada executeQueries
+  // ejecuta cada consulta secuencialmente hasta que se hayan ejecutado todas las consultas o se produzca un error
+  const executeQueries = (index) => {
+    if (index >= queries.length) {
+      callback(null);
+      return;
+    }
+    
+    const { query, params } = queries[index];
+    
+    mysqlConnection.query(query, params, (err, result) => {
+      if (err) {
+        callback(err);
+      } else {
+        executeQueries(index + 1);
+      }
+    });
+  };
+  
+  executeQueries(0);
+}
+
+
+function deleteSDAlumno(user, situacion_docente, callback) {
+  mysqlConnection.query(
+    'DELETE FROM alumno_situacion_doc WHERE cod_alumno = ? AND cod_situacion_docente = ?',
+    [user, situacion_docente],
+    (err, result) => {
+      if (!err) {
+        if (result.affectedRows > 0) {
+          callback(true); // Se eliminaron filas
+        } else {
+          callback(false); // No se encontraron filas para eliminar
+        }
+      } else {
+        callback(err); // Error durante la eliminación
+      }
+    }
+  );
+}
+
+
 
 
 
@@ -201,5 +283,8 @@ module.exports = {
   getRole,
   getCampanasValidasPorUsuario,
   getPreguntasEncuesta,
-  getSDsAlumno
+  getSDsAlumno,
+  deleteSDAlumno,
+  isActiva,
+  setRespuestas
 };

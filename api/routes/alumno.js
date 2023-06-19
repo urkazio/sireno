@@ -57,17 +57,76 @@ router.post('/getEncuesta', (req, res) => {
 // metodo que verifica credenciales llamando a la bbdd
 router.post('/getSDsAlumno', (req, res) => {
   const { usuario } = req.body;
-  console.log(usuario)
 
   mysqlConnection.getSDsAlumno(usuario, (err, situaciones_docentes) => {
     if (!err) {
-      console.log(situaciones_docentes)
       res.json(situaciones_docentes);
     } else {
       res.json(err);
     }
   });
 });
+
+// metodo que verifica si la campaña de una situacion docente es activa
+router.post('/isActiva', (req, res) => {
+  const { cod_situacion_docente } = req.body;
+
+  mysqlConnection.isActiva(cod_situacion_docente, (err, isActive) => {
+    if (!err) {
+      res.json(isActive);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+
+// metodo que obtiene las respuestas de una encuesta
+router.post('/setRespuestas', (req, res) => {
+  const { usuario, respuestas, cod_situacion_docente } = req.body;
+  console.log(respuestas);
+
+  mysqlConnection.getSDsAlumno(usuario, (err, situaciones_docentes) => {
+    if (!err) {
+      // comprobar que el alumno actual tiene pendiente responder a la encuesta de dicha situacion docente
+      if (situaciones_docentes.includes(cod_situacion_docente)) {
+        // Comprobar si la situación docente está activa
+        mysqlConnection.isActiva(cod_situacion_docente, (err, isActive) => {
+          if (!err) {
+            if (isActive) {
+              // introducir las respuestas del alumno en la BBDD
+              mysqlConnection.setRespuestas(cod_situacion_docente, respuestas, (err, resultado) => {
+                if (!err) {
+                  // borrar al alumno de la situacion docente pendiente
+                  mysqlConnection.deleteSDAlumno(usuario, cod_situacion_docente, (err, resultado) => {
+                    if (!err) {
+                      res.json(resultado);
+                    } else {
+                      res.json(err);
+                    }
+                  });
+                } else {
+                  res.json(err);
+                }
+              });
+            } else {
+              res.status(401).json("La situación docente no está activa");
+            }
+          } else {
+            res.json(err);
+          }
+        });
+      } else {
+        res.status(401).json("Alumno no autorizado");
+      }
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+
+
 
 
 // se exporta el ruter del usuario para poder usarlo desde app.js (todas las rutas)
