@@ -294,16 +294,49 @@ function deleteSDAlumno(user, situacion_docente, callback) {
 //---------------------------------- docentes ----------------------------------------------
 
 function getCampannasValidasDocente(user, callback) {
-  const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const date = new Date();
+  date.setHours(date.getHours() + 2); // UTC +2 
+  const currentDate = date.toISOString().slice(0, 19).replace('T', ' ');
+  console.log(currentDate);
+  
 
   const query = `
-    SELECT sd.cod_situacion_docente, sd.n_alum_total, sd.n_alum_respondido, a.nombre_Asignatura, c.fecha_fin, sd.num_curso, c.año_curso, sd.activada, sd.agrupado_con
+    SELECT sd.cod_situacion_docente, sd.n_alum_total, sd.n_alum_respondido, a.nombre_Asignatura, c.fecha_fin, sd.num_curso, c.año_curso, sd.activada, sd.agrupado_con, ac.fecha_hora_cierre
     FROM situacion_docente sd
     INNER JOIN campana c ON sd.cod_campana = c.cod_campana
     JOIN asignatura AS a ON sd.cod_asignatura = a.cod_asignatura
+    LEFT JOIN (
+      SELECT cod_situacion_docente, MAX(fecha_hora_ini) AS max_fecha_hora_ini
+      FROM activacion_campana
+      WHERE '${currentDate}' <= fecha_hora_cierre
+      GROUP BY cod_situacion_docente
+    ) ac_latest ON sd.cod_situacion_docente = ac_latest.cod_situacion_docente
+    LEFT JOIN activacion_campana ac ON ac_latest.cod_situacion_docente = ac.cod_situacion_docente AND ac_latest.max_fecha_hora_ini = ac.fecha_hora_ini
     WHERE sd.cod_docente = ? AND
     '${currentDate}' BETWEEN c.fecha_ini AND c.fecha_fin
+    ORDER BY
+      CASE WHEN ac.fecha_hora_cierre IS NOT NULL THEN 0 ELSE 1 END, 
+      CASE WHEN ac.fecha_hora_cierre IS NULL THEN 1 ELSE 0 END, 
+      ac.fecha_hora_cierre ASC,
+      sd.activada ASC, 
+      CASE WHEN ac.fecha_hora_cierre IS NULL THEN sd.activada END ASC,
+      c.fecha_fin ASC
   `;
+
+  /**************************** CRITERIOS DE ORDENACION DE LAS CAMPAÑAS DEVUELTAS ***************************** 
+
+  --> CRITERIO PRINCIPAL
+    -- Mostrar primero las campañas activas: aquellas situaciones docentes con fecha_hora_cierre no nula
+
+  --> CAMPAÑAS ACTIVAS (ENCUESTA ABIERTA)
+    -- Ordenar por fecha_hora_cierre ascendente
+    -- En caso de empate, ordenar por veces_abierta ascendente: primero las que menos veces han sido abiertas
+
+  --> CAMPAÑAS INACTIVA (ENCUESTA CERRADA)
+    -- Primero las que menos veces han sido abiertas: Ordenar por veces_activada ascendente para las situaciones docentes con fecha_hora_cierre NULL
+    -- En caso de empate, se muestran primero las que tienen fecha de expiracion proxima: Ordenar por fecha_fin ascendente
+
+  **************************************************************************************************************/
 
   mysqlConnection.query(query, [user], (err, rows, fields) => {
     if (!err) {
@@ -324,21 +357,29 @@ function getCampannasValidasDocente(user, callback) {
         }
       });
 
-      const result = situacionesDocentes.map(row => {
+      // Recorre las situaciones docentes individuales y agrega los valores de n_alum_total y n_alum_respondido a las situaciones docentes agrupadas correspondientes
+      situacionesDocentes.forEach(row => {
         const { cod_situacion_docente } = row;
-        // Si hay situaciones docentes agrupadas para esta situación docente individual, se agrega la propiedad 'agrupado_con'
         if (agrupados[cod_situacion_docente]) {
-          row.agrupado_con = agrupados[cod_situacion_docente];
+          row.agrupado_con = agrupados[cod_situacion_docente].map(cod => {
+            const agrupado = rows.find(r => r.cod_situacion_docente === cod);
+            return {
+              cod_situacion_docente: cod,
+              n_alum_total: agrupado.n_alum_total,
+              n_alum_respondido: agrupado.n_alum_respondido
+            };
+          });
         }
-        return row;
       });
 
-      callback(null, result);
+      callback(null, situacionesDocentes);
     } else {
       callback(err);
     }
   });
 }
+
+
 
 
 
