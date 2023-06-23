@@ -66,7 +66,7 @@ function getCampanasValidasPorUsuario(usuario, callback) {
     LEFT JOIN activacion_campana AS ac ON sd.cod_situacion_docente = ac.cod_situacion_docente
     WHERE asd.cod_alumno = ?
     AND c.fecha_ini <= NOW()
-    AND (sd.activada = 0 AND c.fecha_fin >= NOW() OR sd.activada = 1 AND ac.fecha_hora_cierre >= NOW())
+    AND (sd.activada = 0 AND c.fecha_fin >= NOW() OR sd.activada >= 1 AND ac.fecha_hora_cierre >= NOW())
   `;
 
   mysqlConnection.query(query, [usuario], (err, rows, fields) => {
@@ -76,7 +76,7 @@ function getCampanasValidasPorUsuario(usuario, callback) {
           cod_campana: row.cod_campana,
           nombre_campana: row.nombre,
           fecha_fin: row.fecha_fin,
-          abierta_antes: row.activada,
+          veces_activada: row.activada,
           cod_encuesta: row.cod_encuesta,
           cod_situacion_docente: row.cod_situacion_docente,
           cod_asignatura: row.cod_asignatura,
@@ -197,8 +197,16 @@ function getSDsAlumno(user, callback) {
 
 
 function isActiva(cod_situacion_docente, callback) {
-  const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
+  const currentDate = new Date().toLocaleString('es-ES', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).replace(/(\d+)\/(\d+)\/(\d+),/, '$3-$2-$1')
+  
   mysqlConnection.query(
     'SELECT * FROM activacion_campana WHERE cod_situacion_docente = ? AND fecha_hora_ini < ? AND fecha_hora_cierre > ?',
     [cod_situacion_docente, currentDate, currentDate],
@@ -212,6 +220,34 @@ function isActiva(cod_situacion_docente, callback) {
     }
   );
 }
+
+
+function isValida(cod_situacion_docente, callback) {
+
+  const currentDate = new Date().toLocaleString('es-ES', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).replace(/(\d+)\/(\d+)\/(\d+),/, '$3-$2-$1')
+
+  mysqlConnection.query(
+    'SELECT * FROM campana WHERE cod_campana = (SELECT cod_campana FROM situacion_docente WHERE cod_situacion_docente = ?) AND ? >= fecha_ini AND ? <= fecha_fin',
+    [cod_situacion_docente, currentDate, currentDate],
+    (err, rows, fields) => {
+      if (!err) {
+        const isValida = rows.length > 0;
+        callback(null, isValida);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
 
 
 
@@ -294,9 +330,17 @@ function deleteSDAlumno(user, situacion_docente, callback) {
 //---------------------------------- docentes ----------------------------------------------
 
 function getCampannasValidasDocente(user, callback) {
-  const date = new Date();
-  date.setHours(date.getHours() + 2); // UTC +2 
-  const currentDate = date.toISOString().slice(0, 19).replace('T', ' ');
+
+  const currentDate = new Date().toLocaleString('es-ES', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).replace(/(\d+)\/(\d+)\/(\d+),/, '$3-$2-$1');
+  
   console.log(currentDate);
   
 
@@ -380,6 +424,36 @@ function getCampannasValidasDocente(user, callback) {
 }
 
 
+function activarCampanna(situacion, fechaHoraFinActivacion, callback) {
+  const fechaHoraIni = new Date(); // Obtener la fecha y hora actual
+  console.log(fechaHoraIni)
+
+  mysqlConnection.query(
+    'INSERT INTO activacion_campana (cod_situacion_docente, fecha_hora_ini, fecha_hora_cierre, abierta_por_docente) VALUES (?, ?, ?, ?)',
+    [situacion, fechaHoraIni, fechaHoraFinActivacion, true], // true representa que está abierta por el docente
+    (err, rows, fields) => {
+      if (!err) {
+        callback(null); 
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+function updateVecesAbierta(situacion, callback) {
+  mysqlConnection.query(
+    'UPDATE situacion_docente SET activada = activada + 1 WHERE cod_situacion_docente = ?',
+    [situacion],
+    (err, rows, fields) => {
+      if (!err) {
+        callback(null, true);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
 
 
 
@@ -393,7 +467,10 @@ module.exports = {
   getSDsAlumno,
   deleteSDAlumno,
   isActiva,
+  isValida,
   setRespuestas,
   updateNumAlumRespond,
-  getCampannasValidasDocente
+  getCampannasValidasDocente,
+  activarCampanna,
+  updateVecesAbierta
 };
