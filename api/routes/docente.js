@@ -3,8 +3,6 @@ const router = express.Router();
 const dbQuery = require('../database/dbQuerys'); // Importa el archivo "dbQuery.js"
 
 
-
-
 // metodo que verifica credenciales llamando a la bbdd
 router.post('/getCampannas', (req, res) => {
   const { usuario } = req.body;
@@ -17,6 +15,7 @@ router.post('/getCampannas', (req, res) => {
     }
   });
 });
+
 
 // metodo que verifica credenciales llamando a la bbdd
 router.post('/isValida', (req, res) => {
@@ -32,18 +31,9 @@ router.post('/isValida', (req, res) => {
 });
 
 
-
 // Metodo que verifica credenciales llamando a la bbdd
-router.post('/abrirCampanna', (req, res) => {
+router.post("/abrirCampanna", (req, res) => {
   const { situaciones, fechaHoraFinActivacion } = req.body;
-
-  var dateObject = new Date(fechaHoraFinActivacion);
-  var options = { timeZone: 'Europe/Madrid' };
-  var formattedDate = dateObject.toLocaleString('es-ES', options);
-
-  console.log("formated fecha front " + formattedDate);
-
-  const fechaHoraFinActivacionLocal = fechaHoraFinActivacion.toLocaleString("es-ES", { timeZone: "Europe/Madrid" });
 
   // Crear un arreglo de promesas
   const promises = situaciones.map((situacion) => {
@@ -51,20 +41,32 @@ router.post('/abrirCampanna', (req, res) => {
       dbQuery.isValida(situacion, (err, isValida) => {
         if (!err) {
           if (isValida) {
-            // setear la fecha de inicio y fin de la activacion
-            dbQuery.activarCampanna(situacion, fechaHoraFinActivacionLocal, (err) => {
+            dbQuery.isActiva(situacion, (err, isActive) => {
               if (!err) {
-                // sumar 1 a veces_abierta de la tabla situaciones
-                dbQuery.updateVecesAbierta(situacion, (err, rdo) => {
-                  if (!err) {
-                    console.log(rdo);
-                    resolve(rdo);
-                  } else {
-                    reject(err);
-                  }
-                });
+                if (!isActive) {
+                  // setear la fecha de inicio y fin de la activacion
+                  dbQuery.activarCampanna(
+                    situacion,
+                    fechaHoraFinActivacion,
+                    (err) => {
+                      if (!err) {
+                        // sumar 1 a veces_abierta de la tabla situaciones
+                        dbQuery.updateVecesAbierta(situacion, (err, rdo) => {
+                          if (!err) {
+                            resolve(rdo);
+                          } else {
+                            reject(err);
+                          }
+                        });
+                      } else {
+                        reject(err);
+                      }
+                    }
+                  );
+                }
               } else {
-                reject(err);
+                // Si es activa, resolvemos la promesa con null
+                resolve(null);
               }
             });
           } else {
@@ -84,9 +86,88 @@ router.post('/abrirCampanna', (req, res) => {
       res.json(results);
     })
     .catch((err) => {
-      res.json(err);
+      res.status(401).json({ error: 'Error en el proceso de apertura de la campaña' });
     });
 });
+
+
+
+router.post('/desactivarCampana', (req, res) => {
+  const { situaciones } = req.body;
+
+  // Crear un arreglo de promesas
+  const promises = situaciones.map((situacion) => {
+    return new Promise((resolve, reject) => {
+      dbQuery.isActiva(situacion, (err, isActive) => {
+        if (!err) {
+          if (isActive) {
+            dbQuery.desactivarCampana(situacion, (err, rdo) => {
+              if (!err) {
+                resolve(rdo); // Resolvemos la promesa con el resultado
+              } else {
+                reject(err);
+              }
+            });
+          }
+        } else {
+          // Si es activa, resolvemos la promesa con null
+          resolve(null);
+        }
+      });
+    });
+  });
+
+  // Ejecutar todas las promesas y enviar la respuesta una vez que todas se resuelvan
+  Promise.all(promises)
+    .then((results) => {
+      res.json(results);
+      // Enviamos la respuesta con los resultados
+    })
+    .catch((err) => {
+      res.status(401).json({ error: 'Error en el proceso de desactivación de la campaña' });
+    });
+});
+
+
+
+router.post('/getRespondidos', (req, res) => {
+  const { situaciones } = req.body;
+  console.log("situaciones:" + situaciones);
+
+  // Crear un arreglo de promesas
+  const promises = situaciones.map((situacion) => {
+    return new Promise((resolve, reject) => {
+      dbQuery.getRespondidos(situacion, (err, n_alum_respondido) => {
+        if (!err) {
+          // Verificar si n_alum_respondido es un número y agregarlo a la suma
+          if (typeof n_alum_respondido === 'number') {
+            resolve(n_alum_respondido); // Resolvemos la promesa con el n_alum_respondido
+          } else {
+            resolve(0); // Si no es un número, resolvemos la promesa con 0
+          }
+        } else {
+          reject(err);
+        }
+      });
+    });
+  });
+
+  // Ejecutar todas las promesas y realizar la suma de n_alum_respondido
+  Promise.all(promises)
+    .then((results) => {
+      const suma = results.reduce((acc, curr) => acc + curr, 0);
+      console.log(suma);
+      res.json({ suma });
+    })
+    .catch((err) => {
+      res.status(500).json({ error: 'Error al obtener el numero de respondidos' });
+    });
+});
+
+
+
+
+
 
 
 

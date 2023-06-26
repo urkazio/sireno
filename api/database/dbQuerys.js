@@ -206,7 +206,7 @@ function isActiva(cod_situacion_docente, callback) {
     minute: '2-digit',
     second: '2-digit',
   }).replace(/(\d+)\/(\d+)\/(\d+),/, '$3-$2-$1')
-  
+
   mysqlConnection.query(
     'SELECT * FROM activacion_campana WHERE cod_situacion_docente = ? AND fecha_hora_ini < ? AND fecha_hora_cierre > ?',
     [cod_situacion_docente, currentDate, currentDate],
@@ -340,9 +340,7 @@ function getCampannasValidasDocente(user, callback) {
     minute: '2-digit',
     second: '2-digit',
   }).replace(/(\d+)\/(\d+)\/(\d+),/, '$3-$2-$1');
-  
-  console.log(currentDate);
-  
+    
 
   const query = `
     SELECT sd.cod_situacion_docente, sd.n_alum_total, sd.n_alum_respondido, a.nombre_Asignatura, c.fecha_fin, sd.num_curso, c.año_curso, sd.activada, sd.agrupado_con, ac.fecha_hora_cierre
@@ -426,20 +424,46 @@ function getCampannasValidasDocente(user, callback) {
 
 function activarCampanna(situacion, fechaHoraFinActivacion, callback) {
   const fechaHoraIni = new Date(); // Obtener la fecha y hora actual
-  console.log(fechaHoraIni)
 
   mysqlConnection.query(
-    'INSERT INTO activacion_campana (cod_situacion_docente, fecha_hora_ini, fecha_hora_cierre, abierta_por_docente) VALUES (?, ?, ?, ?)',
-    [situacion, fechaHoraIni, fechaHoraFinActivacion, true], // true representa que está abierta por el docente
+    'SELECT c.fecha_ini, c.fecha_fin FROM campana c INNER JOIN situacion_docente sd ON c.cod_campana = sd.cod_campana WHERE sd.cod_situacion_docente = ?',
+    [situacion],
     (err, rows, fields) => {
-      if (!err) {
-        callback(null); 
-      } else {
+      if (err) {
         callback(err);
+        return;
       }
+
+      const fechaIniCampana = rows[0].fecha_ini;
+      const fechaFinCampana = rows[0].fecha_fin;
+
+      if (fechaHoraFinActivacion < fechaIniCampana) {
+        const error = new Error('La fechaHoraFinActivacion es anterior a la fecha de inicio de la campaña');
+        callback(error);
+        return;
+      }
+
+      if (fechaHoraFinActivacion > fechaFinCampana) {
+        const error = new Error('La fechaHoraFinActivacion es posterior a la fecha_fin de la campaña');
+        callback(error);
+        return;
+      }
+
+      mysqlConnection.query(
+        'INSERT INTO activacion_campana (cod_situacion_docente, fecha_hora_ini, fecha_hora_cierre, abierta_por_docente) VALUES (?, ?, ?, ?)',
+        [situacion, fechaHoraIni, fechaHoraFinActivacion, true], // true representa que está abierta por el docente
+        (err, rows, fields) => {
+          if (!err) {
+            callback(null);
+          } else {
+            callback(err);
+          }
+        }
+      );
     }
   );
 }
+
 
 function updateVecesAbierta(situacion, callback) {
   mysqlConnection.query(
@@ -455,6 +479,39 @@ function updateVecesAbierta(situacion, callback) {
   );
 }
 
+
+function desactivarCampana(situacion, callback) {
+  const fechaHoraCierre = new Date(); // Obtener la fecha y hora actual
+
+  mysqlConnection.query(
+    'UPDATE activacion_campana SET fecha_hora_cierre = ? WHERE cod_situacion_docente = ?',
+    [fechaHoraCierre, situacion], // true representa que está abierta por el docente
+    (err, rows, fields) => {
+      if (!err && rows.affectedRows > 0) {
+        callback(null, true); // La actualización se realizó correctamente
+      } else {
+        callback(err || "No se encontraron filas para actualizar.");
+      }
+    }
+  );
+}
+
+
+function getRespondidos(situacion, callback) {
+
+  mysqlConnection.query(
+    'SELECT n_alum_respondido FROM situacion_docente WHERE cod_situacion_docente = ?',
+    [situacion], // true representa que está abierta por el docente
+    (err, rows, fields) => {
+      if (!err && rows.length > 0) {
+        const n_alum_respondido = rows[0].n_alum_respondido;
+        callback(null, n_alum_respondido); // La actualización se realizó correctamente
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
 
 
 
@@ -472,5 +529,7 @@ module.exports = {
   updateNumAlumRespond,
   getCampannasValidasDocente,
   activarCampanna,
-  updateVecesAbierta
+  updateVecesAbierta,
+  desactivarCampana,
+  getRespondidos
 };
