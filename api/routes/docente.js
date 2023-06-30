@@ -45,10 +45,7 @@ router.post("/abrirCampanna", (req, res) => {
               if (!err) {
                 if (!isActive) {
                   // setear la fecha de inicio y fin de la activacion
-                  dbQuery.activarCampanna(
-                    situacion,
-                    fechaHoraFinActivacion,
-                    (err) => {
+                  dbQuery.activarCampanna(situacion, fechaHoraFinActivacion, (err) => {
                       if (!err) {
                         // sumar 1 a veces_abierta de la tabla situaciones
                         dbQuery.updateVecesAbierta(situacion, (err, rdo) => {
