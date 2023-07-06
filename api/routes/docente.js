@@ -162,8 +162,32 @@ router.post('/getRespondidos', (req, res) => {
 });
 
 
+// metodo que verifica credenciales llamando a la bbdd
+router.post('/getAsignaturasPublicadas', (req, res) => {
+  const { usuario } = req.body;
+
+  dbQuery.getAsignaturasPublicadas(usuario, (err, asignaturas) => {
+    if (!err) {
+      res.json(asignaturas);
+    } else {
+      res.json(err);
+    }
+  });
+});
 
 
+// metodo que verifica credenciales llamando a la bbdd
+router.post('/getDatosSD', (req, res) => {
+  const { usuario } = req.body;
+
+  dbQuery.getCampannasValidasDocente(usuario, (err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
 
 
 

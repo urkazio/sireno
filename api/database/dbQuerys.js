@@ -513,6 +513,65 @@ function getRespondidos(situacion, callback) {
   );
 }
 
+function getAsignaturasPublicadas(usuario, callback) {
+  mysqlConnection.query(
+    `SELECT asignatura.nombre_asignatura, campana.año_curso, GROUP_CONCAT(situacion_docente.cod_situacion_docente) AS agrupado_con
+    FROM asignatura 
+    JOIN situacion_docente ON asignatura.cod_asignatura = situacion_docente.cod_asignatura 
+    JOIN campana ON situacion_docente.cod_campana = campana.cod_campana 
+    WHERE situacion_docente.cod_docente = ? AND campana.informe_publicado = 1
+    GROUP BY asignatura.cod_asignatura, asignatura.nombre_asignatura, campana.año_curso`,
+    [usuario],
+    (err, rows, fields) => {
+      if (!err) {
+        if (rows && rows.length > 0) {
+          const asignaturasPublicadas = [];
+          const asignaturasAgrupadas = {};
+
+          rows.forEach(row => {
+            const { nombre_asignatura, año_curso, agrupado_con } = row;
+
+            if (!asignaturasAgrupadas[nombre_asignatura]) {
+              asignaturasAgrupadas[nombre_asignatura] = {};
+            }
+
+            if (!asignaturasAgrupadas[nombre_asignatura][año_curso]) {
+              asignaturasAgrupadas[nombre_asignatura][año_curso] = {
+                situaciones_docentes: []
+              };
+            }
+
+            if (agrupado_con) {
+              asignaturasAgrupadas[nombre_asignatura][año_curso].situaciones_docentes.push(...agrupado_con.split(","));
+            }
+          });
+
+          for (const nombre_asignatura in asignaturasAgrupadas) {
+            const año_cursoObj = asignaturasAgrupadas[nombre_asignatura];
+            const asignatura = {
+              nombre_asignatura: nombre_asignatura
+            };
+
+            for (const año_curso in año_cursoObj) {
+              asignatura[año_curso] = año_cursoObj[año_curso];
+            }
+
+            asignaturasPublicadas.push(asignatura);
+          }
+
+          callback(null, asignaturasPublicadas);
+        } else {
+          callback(null, []);
+        }
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+
+
 
 
 // exportar las funciones definidas en este fichero
@@ -531,5 +590,6 @@ module.exports = {
   activarCampanna,
   updateVecesAbierta,
   desactivarCampana,
-  getRespondidos
+  getRespondidos,
+  getAsignaturasPublicadas
 };
