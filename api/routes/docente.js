@@ -127,20 +127,17 @@ router.post('/desactivarCampana', (req, res) => {
 
 
 
-router.post('/getRespondidos', (req, res) => {
-  const { situaciones } = req.body;
+router.post('/getResultadosInformePersonal', (req, res) => {
+  const { cod_encuesta, situaciones, idioma } = req.body;
+
+  console.log(situaciones);
 
   // Crear un arreglo de promesas
   const promises = situaciones.map((situacion) => {
     return new Promise((resolve, reject) => {
-      dbQuery.getRespondidos(situacion, (err, n_alum_respondido) => {
+      dbQuery.getResultadosInformePersonal(cod_encuesta, situacion, idioma, (err, encuesta) => {
         if (!err) {
-          // Verificar si n_alum_respondido es un número y agregarlo a la suma
-          if (typeof n_alum_respondido === 'number') {
-            resolve(n_alum_respondido); // Resolvemos la promesa con el n_alum_respondido
-          } else {
-            resolve(0); // Si no es un número, resolvemos la promesa con 0
-          }
+          resolve(encuesta); // Resolvemos la promesa con los datos de la encuesta
         } else {
           reject(err);
         }
@@ -148,19 +145,70 @@ router.post('/getRespondidos', (req, res) => {
     });
   });
 
-  // Ejecutar todas las promesas y realizar la suma de n_alum_respondido
+  // Ejecutar todas las promesas y obtener los resultados de las encuestas
   Promise.all(promises)
     .then((results) => {
-      const suma = results.reduce((acc, curr) => acc + curr, 0);
-      res.json({ suma });
+      const jsonResult = {};
+
+      // Combinar los resultados de las encuestas
+      results.forEach((encuesta) => {
+        encuesta.forEach((respuesta) => {
+          const cod_pregunta = respuesta.cod_pregunta;
+
+          if (!jsonResult[cod_pregunta]) {
+            // Si la pregunta no existe en el JSON combinado, se agrega
+            jsonResult[cod_pregunta] = {
+              cod_pregunta: respuesta.cod_pregunta,
+              texto_pregunta: respuesta.texto_pregunta,
+              numerica: respuesta.numerica,
+              respuestas: [],
+              media: [],
+              cuantos: 0,
+            };
+          }
+
+          // Agregar las respuestas y actualizar el cuantos
+          respuesta.respuestas.forEach((r) => {
+            const cod_respuesta = r.cod_respuesta;
+            const respuestaIndex = jsonResult[cod_pregunta].respuestas.findIndex(
+              (resp) => resp.cod_respuesta === cod_respuesta
+            );
+            if (respuestaIndex === -1) {
+              jsonResult[cod_pregunta].respuestas.push({ cod_respuesta, cuantos: r.cuantos });
+            } else {
+              jsonResult[cod_pregunta].respuestas[respuestaIndex].cuantos += r.cuantos;
+            }
+          });
+          jsonResult[cod_pregunta].cuantos += respuesta.respuestas.reduce((sum, r) => sum + r.cuantos, 0);
+
+          if (respuesta.media !== '-') {
+            // Agregar las medias válidas para calcular la media final
+            jsonResult[cod_pregunta].media.push(parseFloat(respuesta.media));
+          }
+        });
+      });
+
+      // Calcular la media final
+      Object.values(jsonResult).forEach((pregunta) => {
+        if (pregunta.media.length > 0) {
+          // Calcular la media solo si hay valores válidos
+          const mediaSum = pregunta.media.reduce((sum, value) => sum + value, 0);
+          pregunta.media = (mediaSum / pregunta.media.length).toFixed(2);
+        } else {
+          pregunta.media = '-';
+        }
+      });
+
+      console.log(jsonResult);
+      res.json(jsonResult);
     })
     .catch((err) => {
-      res.status(500).json({ error: 'Error al obtener el numero de respondidos' });
+      res.status(500).json({ error: 'Error al obtener los resultados del informe personal' });
     });
 });
 
 
-// metodo que verifica credenciales llamando a la bbdd
+
 router.post('/getAsignaturasPublicadas', (req, res) => {
   const { usuario } = req.body;
 
@@ -208,6 +256,7 @@ router.post('/getDatosSD', (req, res) => {
         grupo: results[0].grupo,
         encuesta: results[0].encuesta,
         situacion: results[0].situacion,
+        situaciones: situaciones,
         plazasMatriculadas: 0,
         numCuestionarios: 0
       });
@@ -222,9 +271,9 @@ router.post('/getDatosSD', (req, res) => {
 
 // metodo que verifica credenciales llamando a la bbdd
 router.post('/getResultadosInformePersonal', (req, res) => {
-  const { cod_encuesta, idioma } = req.body;
+  const { cod_encuesta, situaciones, idioma } = req.body;
 
-  dbQuery.getResultadosInformePersonal(cod_encuesta, idioma, (err, encuesta) => {
+  dbQuery.getResultadosInformePersonal(cod_encuesta, situaciones, idioma, (err, encuesta) => {
     if (!err) {
       res.json(encuesta);
     } else {

@@ -643,7 +643,7 @@ function getDatosSD(codSituacionDocente, callback) {
 
 
 
-function getResultadosInformePersonal(cod_encuesta, idioma, callback) {
+function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idioma, callback) {
   mysqlConnection.query(
     `SELECT pe.cod_pregunta, tp.texto, p.numerica
     FROM pregunta_en_encuesta pe
@@ -669,24 +669,34 @@ function getResultadosInformePersonal(cod_encuesta, idioma, callback) {
           // Pregunta numérica, obtener las respuestas y la media
           return new Promise((resolve, reject) => {
             mysqlConnection.query(
-              `SELECT rnp.cod_respuesta_numerica, COUNT(rna.cuantos) AS cuantos, SUM(rna.cod_respuesta_numerica) AS suma_cod_respuesta
+              `SELECT rnp.cod_respuesta_numerica, IFNULL(rna.cuantos, 0) AS cuantos, SUM(rna.cod_respuesta_numerica) AS suma_cod_respuesta
               FROM respuesta_numerica_de_pregunta rnp
-              LEFT JOIN respuesta_numerica_alumnos rna ON rna.cod_respuesta_numerica = rnp.cod_respuesta_numerica AND rna.cod_pregunta = rnp.cod_pregunta
-              WHERE rnp.cod_pregunta = ? AND rna.cod_respuesta_numerica IN ('1', '2', '3', '4', '5')
+              LEFT JOIN respuesta_numerica_alumnos rna ON rna.cod_respuesta_numerica = rnp.cod_respuesta_numerica AND rna.cod_pregunta = rnp.cod_pregunta AND rna.cod_situacion_docente = ?
+              WHERE rnp.cod_pregunta = ? AND rna.cod_respuesta_numerica IN ('1', '2', '3', '4', '5') AND rna.cod_situacion_docente = ?
               GROUP BY rnp.cod_respuesta_numerica`,
-              [row.cod_pregunta],
+              [cod_situacion_docente, row.cod_pregunta, cod_situacion_docente],
               (err, rows, fields) => {
                 if (err) {
                   reject(err);
                 } else {
-                  const respuestas = rows.map((respuesta) => ({
-                    cod_respuesta: respuesta.cod_respuesta_numerica,
-                    cuantos: respuesta.cuantos,
-                  }));
+                  const respuestas = [
+                    { cod_respuesta: '1', cuantos: 0 },
+                    { cod_respuesta: '2', cuantos: 0 },
+                    { cod_respuesta: '3', cuantos: 0 },
+                    { cod_respuesta: '4', cuantos: 0 },
+                    { cod_respuesta: '5', cuantos: 0 }
+                  ];
+
+                  rows.forEach((respuesta) => {
+                    const index = parseInt(respuesta.cod_respuesta_numerica) - 1;
+                    respuestas[index].cuantos = respuesta.cuantos;
+                  });
+
                   const sumaCodRespuesta = rows.reduce((sum, r) => sum + r.suma_cod_respuesta, 0);
                   const sumaCuantos = rows.reduce((sum, r) => sum + r.cuantos, 0);
                   const media = parseFloat(sumaCodRespuesta / sumaCuantos).toFixed(2);
-                  resolve({ ...pregunta, respuestas, media });
+
+                  resolve({ ...pregunta, respuestas, media: isNaN(media) ? '-' : media });
                 }
               }
             );
@@ -695,13 +705,13 @@ function getResultadosInformePersonal(cod_encuesta, idioma, callback) {
           // Pregunta verbal, obtener las respuestas de respuesta_verbal y texto_respuesta en el idioma especificado
           return new Promise((resolve, reject) => {
             mysqlConnection.query(
-              `SELECT tr.cod_respuesta_verbal, tr.texto, COUNT(rva.cuantos) AS cuantos
+              `SELECT tr.cod_respuesta_verbal, tr.texto, IFNULL(rva.cuantos, 0) AS cuantos
               FROM respuesta_verbal rv
               JOIN texto_respuesta tr ON rv.cod_respuesta_verbal = tr.cod_respuesta_verbal
-              LEFT JOIN respuesta_verbal_alumnos rva ON rva.cod_respuesta_verbal = tr.cod_respuesta_verbal
-              WHERE rv.cod_pregunta = ? AND tr.cod_idioma = ?
+              LEFT JOIN respuesta_verbal_alumnos rva ON rva.cod_respuesta_verbal = tr.cod_respuesta_verbal AND rva.cod_situacion_docente = ?
+              WHERE rv.cod_pregunta = ? AND tr.cod_idioma = ? AND rva.cod_situacion_docente = ?
               GROUP BY tr.cod_respuesta_verbal`,
-              [row.cod_pregunta, idioma],
+              [cod_situacion_docente, row.cod_pregunta, idioma, cod_situacion_docente],
               (err, rows, fields) => {
                 if (err) {
                   reject(err);
@@ -709,8 +719,9 @@ function getResultadosInformePersonal(cod_encuesta, idioma, callback) {
                   const respuestas = rows.map((respuesta) => ({
                     cod_respuesta: respuesta.cod_respuesta_verbal,
                     texto: respuesta.texto,
-                    cuantos: respuesta.cuantos,
+                    cuantos: respuesta.cuantos || 0,
                   }));
+
                   resolve({ ...pregunta, respuestas });
                 }
               }
