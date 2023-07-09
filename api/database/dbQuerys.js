@@ -570,6 +570,168 @@ function getAsignaturasPublicadas(usuario, callback) {
   );
 }
 
+function getDatosSD(codSituacionDocente, callback) {
+  const query = `
+    SELECT 
+      cpa.cod_encuesta,
+      c.cod_centro, c.nombre_centro,
+      t.cod_grado, t.nombre_grado,
+      d.cod_depto, d.nombre_depto,
+      p.cod_docente, p.nombre_docente,
+      a.cod_asignatura, a.nombre_asignatura,
+      g.cod_grupo, g.nombre_grupo,
+      s.num_curso, cpa.año_curso,
+      s.cod_campana, s.cod_situacion_docente,
+      s.n_alum_total, s.n_alum_respondido
+    FROM situacion_docente s
+    INNER JOIN centro c ON s.cod_centro = c.cod_centro
+    INNER JOIN grado t ON s.cod_grado = t.cod_grado
+    INNER JOIN docente p ON s.cod_docente = p.cod_docente
+    INNER JOIN asignatura a ON s.cod_asignatura = a.cod_asignatura
+    INNER JOIN grupo g ON s.cod_grupo = g.cod_grupo
+    INNER JOIN departamento d ON d.cod_centro = c.cod_centro
+    INNER JOIN campana cpa ON s.cod_campana = cpa.cod_campana
+    WHERE s.cod_situacion_docente = ?
+  `;
+
+  mysqlConnection.query(query, [codSituacionDocente], (err, rows) => {
+    if (err) {
+      callback(err);
+    } else if (rows.length === 0) {
+      callback("No se encontraron datos.");
+    } else {
+      const result = rows[0];
+      rdo = {
+        centro: {
+          codigo: result.cod_centro,
+          nombre: result.nombre_centro
+        },
+        titulacion: {
+          codigo: result.cod_grado,
+          nombre: result.nombre_grado
+        },
+        departamento: {
+          codigo: result.cod_depto,
+          nombre: result.nombre_depto
+        },
+        profesor: {
+          codigo: result.cod_docente,
+          nombre: result.nombre_docente
+        },
+        asignatura: {
+          codigo: result.cod_asignatura,
+          nombre: result.nombre_asignatura
+        },
+        grupo: {
+          codigo: result.cod_grupo,
+          nombre: result.nombre_grupo
+        },
+        curso: {
+          codigo: result.num_curso,
+          año_curso: result.año_curso
+        },
+        encuesta: result.cod_encuesta,
+        situacion: result.cod_situacion_docente,
+        plazasMatriculadas: result.n_alum_total,
+        numCuestionarios: result.n_alum_respondido || 0
+      }
+      console.log(rdo);
+      callback(null, rdo);
+    }
+  });
+}
+
+
+
+function getResultadosInformePersonal(cod_encuesta, idioma, callback) {
+  mysqlConnection.query(
+    `SELECT pe.cod_pregunta, tp.texto, p.numerica
+    FROM pregunta_en_encuesta pe
+    JOIN texto_pregunta tp ON pe.cod_pregunta = tp.cod_pregunta
+    JOIN pregunta p ON pe.cod_pregunta = p.cod_pregunta
+    WHERE pe.cod_encuesta = ? AND tp.cod_idioma = ?`,
+    [cod_encuesta, idioma],
+    (err, rows, fields) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      // Para cada pregunta, obtener las posibles respuestas según el tipo de pregunta
+      const result = rows.map((row) => {
+        const pregunta = {
+          cod_pregunta: row.cod_pregunta,
+          texto_pregunta: row.texto,
+          numerica: row.numerica
+        };
+
+        if (row.numerica) {
+          // Pregunta numérica, obtener las respuestas y la media
+          return new Promise((resolve, reject) => {
+            mysqlConnection.query(
+              `SELECT rnp.cod_respuesta_numerica, COUNT(rna.cuantos) AS cuantos, SUM(rna.cod_respuesta_numerica) AS suma_cod_respuesta
+              FROM respuesta_numerica_de_pregunta rnp
+              LEFT JOIN respuesta_numerica_alumnos rna ON rna.cod_respuesta_numerica = rnp.cod_respuesta_numerica AND rna.cod_pregunta = rnp.cod_pregunta
+              WHERE rnp.cod_pregunta = ? AND rna.cod_respuesta_numerica IN ('1', '2', '3', '4', '5')
+              GROUP BY rnp.cod_respuesta_numerica`,
+              [row.cod_pregunta],
+              (err, rows, fields) => {
+                if (err) {
+                  reject(err);
+                } else {
+                  const respuestas = rows.map((respuesta) => ({
+                    cod_respuesta: respuesta.cod_respuesta_numerica,
+                    cuantos: respuesta.cuantos,
+                  }));
+                  const sumaCodRespuesta = rows.reduce((sum, r) => sum + r.suma_cod_respuesta, 0);
+                  const sumaCuantos = rows.reduce((sum, r) => sum + r.cuantos, 0);
+                  const media = parseFloat(sumaCodRespuesta / sumaCuantos).toFixed(2);
+                  resolve({ ...pregunta, respuestas, media });
+                }
+              }
+            );
+          });
+        } else {
+          // Pregunta verbal, obtener las respuestas de respuesta_verbal y texto_respuesta en el idioma especificado
+          return new Promise((resolve, reject) => {
+            mysqlConnection.query(
+              `SELECT tr.cod_respuesta_verbal, tr.texto, COUNT(rva.cuantos) AS cuantos
+              FROM respuesta_verbal rv
+              JOIN texto_respuesta tr ON rv.cod_respuesta_verbal = tr.cod_respuesta_verbal
+              LEFT JOIN respuesta_verbal_alumnos rva ON rva.cod_respuesta_verbal = tr.cod_respuesta_verbal
+              WHERE rv.cod_pregunta = ? AND tr.cod_idioma = ?
+              GROUP BY tr.cod_respuesta_verbal`,
+              [row.cod_pregunta, idioma],
+              (err, rows, fields) => {
+                if (err) {
+                  reject(err);
+                } else {
+                  const respuestas = rows.map((respuesta) => ({
+                    cod_respuesta: respuesta.cod_respuesta_verbal,
+                    texto: respuesta.texto,
+                    cuantos: respuesta.cuantos,
+                  }));
+                  resolve({ ...pregunta, respuestas });
+                }
+              }
+            );
+          });
+        }
+      });
+
+      // Ejecutar todas las promesas y retornar el resultado final al callback
+      Promise.all(result)
+        .then((encuesta) => {
+          callback(null, encuesta);
+        })
+        .catch((err) => {
+          callback(err);
+        });
+    }
+  );
+}
+
+
 
 
 
@@ -591,5 +753,7 @@ module.exports = {
   updateVecesAbierta,
   desactivarCampana,
   getRespondidos,
-  getAsignaturasPublicadas
+  getAsignaturasPublicadas,
+  getDatosSD,
+  getResultadosInformePersonal
 };

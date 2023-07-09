@@ -129,7 +129,6 @@ router.post('/desactivarCampana', (req, res) => {
 
 router.post('/getRespondidos', (req, res) => {
   const { situaciones } = req.body;
-  console.log("situaciones:" + situaciones);
 
   // Crear un arreglo de promesas
   const promises = situaciones.map((situacion) => {
@@ -153,7 +152,6 @@ router.post('/getRespondidos', (req, res) => {
   Promise.all(promises)
     .then((results) => {
       const suma = results.reduce((acc, curr) => acc + curr, 0);
-      console.log(suma);
       res.json({ suma });
     })
     .catch((err) => {
@@ -176,20 +174,64 @@ router.post('/getAsignaturasPublicadas', (req, res) => {
 });
 
 
-// metodo que verifica credenciales llamando a la bbdd
 router.post('/getDatosSD', (req, res) => {
-  const { usuario } = req.body;
+  const { situaciones } = req.body;
 
-  dbQuery.getCampannasValidasDocente(usuario, (err, campannas) => {
+  // Crear un arreglo de promesas
+  const promises = situaciones.map((situacion) => {
+    return new Promise((resolve, reject) => {
+      dbQuery.getDatosSD(situacion, (err, datos) => {
+        if (!err) {
+          resolve(datos);
+        } else {
+          reject(err);
+        }
+      });
+    });
+  });
+
+  // Ejecutar todas las promesas y obtener los resultados
+  Promise.all(promises)
+    .then((results) => {
+      // Combinar los resultados y realizar la suma de plazasMatriculadas y numCuestionarios
+      const combinedData = results.reduce((acc, curr) => {
+        acc.plazasMatriculadas += curr.plazasMatriculadas;
+        acc.numCuestionarios += curr.numCuestionarios;
+        return acc;
+      }, {
+        centro: results[0].centro,
+        titulacion: results[0].titulacion,
+        departamento: results[0].departamento,
+        profesor: results[0].profesor,
+        asignatura: results[0].asignatura,
+        curso: results[0].curso,
+        grupo: results[0].grupo,
+        encuesta: results[0].encuesta,
+        situacion: results[0].situacion,
+        plazasMatriculadas: 0,
+        numCuestionarios: 0
+      });
+
+      res.json(combinedData);
+    })
+    .catch((err) => {
+      res.status(500).json({ error: 'Error al obtener los datos de las situaciones' });
+    });
+});
+
+
+// metodo que verifica credenciales llamando a la bbdd
+router.post('/getResultadosInformePersonal', (req, res) => {
+  const { cod_encuesta, idioma } = req.body;
+
+  dbQuery.getResultadosInformePersonal(cod_encuesta, idioma, (err, encuesta) => {
     if (!err) {
-      res.json(campannas);
+      res.json(encuesta);
     } else {
       res.json(err);
     }
   });
 });
-
-
 
 
 
