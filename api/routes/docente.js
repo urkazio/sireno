@@ -164,6 +164,7 @@ router.post('/getResultadosInformePersonal', (req, res) => {
               respuestas: [],
               media: [],
               cuantos: 0,
+              total_respuestas: 0,
             };
           }
 
@@ -180,6 +181,8 @@ router.post('/getResultadosInformePersonal', (req, res) => {
             }
           });
           jsonResult[cod_pregunta].cuantos += respuesta.respuestas.reduce((sum, r) => sum + r.cuantos, 0);
+          jsonResult[cod_pregunta].total_respuestas += respuesta.respuestas.reduce((sum, r) => sum + r.cuantos, 0);
+
 
           if (respuesta.media !== '-') {
             // Agregar las medias válidas para calcular la media final
