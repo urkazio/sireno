@@ -635,7 +635,6 @@ function getDatosSD(codSituacionDocente, callback) {
         plazasMatriculadas: result.n_alum_total,
         numCuestionarios: result.n_alum_respondido || 0
       }
-      console.log(rdo);
       callback(null, rdo);
     }
   });
@@ -733,11 +732,169 @@ function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idiom
       // Ejecutar todas las promesas y retornar el resultado final al callback
       Promise.all(result)
         .then((encuesta) => {
+          console.log(encuesta)
           callback(null, encuesta);
         })
         .catch((err) => {
           callback(err);
         });
+    }
+  );
+}
+
+
+
+function getSituacionesAsignatura(profesor, asignatura, cod_pregunta, idioma, callback) {
+  mysqlConnection.query(
+    'SELECT sd.cod_situacion_docente, c.año_curso ' +
+    'FROM situacion_docente sd ' +
+    'INNER JOIN campana c ON sd.cod_campana = c.cod_campana ' +
+    'WHERE sd.cod_docente = ? AND sd.cod_asignatura = ?',
+    [profesor, asignatura],
+    (err, rows, fields) => {
+      if (!err) {
+        const results = [];
+
+        // Agrupar situaciones docentes por año_curso
+        const groupedResults = {};
+        rows.forEach((row) => {
+          const year = row.año_curso;
+          if (groupedResults[year]) {
+            groupedResults[year].cod_situacion_docente.push(row.cod_situacion_docente);
+          } else {
+            groupedResults[year] = {
+              cod_situacion_docente: [row.cod_situacion_docente],
+              año_curso: year,
+            };
+          }
+        });
+
+        // Llamar a getResultadosPregunta por cada elemento y agregar el resultado al objeto
+        const years = Object.keys(groupedResults);
+        let count = 0;
+
+        const getResultadosPreguntaCallback = (err, resultado) => {
+          if (err) {
+            callback(err);
+            return;
+          }
+
+          const year = years[count];
+          groupedResults[year] = { ...groupedResults[year], ...resultado };
+          count++;
+
+          if (count === years.length) {
+            for (const year in groupedResults) {
+              results.push(groupedResults[year]);
+            }
+
+            callback(null, results);
+          }
+        };
+
+        years.forEach((year) => {
+          const situacionesDocentes = groupedResults[year].cod_situacion_docente;
+          getResultadosPregunta(cod_pregunta, situacionesDocentes, idioma, getResultadosPreguntaCallback);
+        });
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+function getResultadosPregunta(cod_pregunta, cod_situacion_docente, idioma, callback) {
+  const placeholders = cod_situacion_docente.map(() => '?').join(', ');
+  const params = [...cod_situacion_docente, cod_pregunta, idioma, ...cod_situacion_docente];
+
+  mysqlConnection.query(
+    `SELECT pe.cod_pregunta, tp.texto, p.numerica
+    FROM pregunta_en_encuesta pe
+    JOIN texto_pregunta tp ON pe.cod_pregunta = tp.cod_pregunta
+    JOIN pregunta p ON pe.cod_pregunta = p.cod_pregunta
+    WHERE tp.cod_idioma = ? AND pe.cod_pregunta = ?`,
+    [idioma, cod_pregunta],
+    (err, rows, fields) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      // Para la pregunta especificada, obtener toda la información subyacente
+      if (rows.length > 0) {
+        const row = rows[0];
+        const pregunta = {
+          cod_pregunta: row.cod_pregunta,
+          texto_pregunta: row.texto,
+          numerica: row.numerica
+        };
+
+        if (row.numerica) {
+          // Pregunta numérica, obtener las respuestas y la media
+          mysqlConnection.query(
+            `SELECT rnp.cod_respuesta_numerica, IFNULL(rna.cuantos, 0) AS cuantos, SUM(rna.cod_respuesta_numerica) AS suma_cod_respuesta
+            FROM respuesta_numerica_de_pregunta rnp
+            LEFT JOIN respuesta_numerica_alumnos rna ON rna.cod_respuesta_numerica = rnp.cod_respuesta_numerica AND rna.cod_pregunta = rnp.cod_pregunta AND rna.cod_situacion_docente IN (${placeholders})
+            WHERE rnp.cod_pregunta = ? AND rna.cod_respuesta_numerica IN ('1', '2', '3', '4', '5') AND rna.cod_situacion_docente IN (${placeholders})
+            GROUP BY rnp.cod_respuesta_numerica`,
+            params,
+            (err, rows, fields) => {
+              if (err) {
+                callback(err);
+                return;
+              }
+
+              const respuestas = [
+                { cod_respuesta: '1', cuantos: 0 },
+                { cod_respuesta: '2', cuantos: 0 },
+                { cod_respuesta: '3', cuantos: 0 },
+                { cod_respuesta: '4', cuantos: 0 },
+                { cod_respuesta: '5', cuantos: 0 }
+              ];
+
+              rows.forEach((respuesta) => {
+                const index = parseInt(respuesta.cod_respuesta_numerica) - 1;
+                respuestas[index].cuantos = respuesta.cuantos;
+              });
+
+              const sumaCodRespuesta = rows.reduce((sum, r) => sum + r.suma_cod_respuesta, 0);
+              const sumaCuantos = rows.reduce((sum, r) => sum + r.cuantos, 0);
+              const media = parseFloat(sumaCodRespuesta / sumaCuantos).toFixed(2);
+
+              const result = { ...pregunta, respuestas, media: isNaN(media) ? '-' : media };
+              callback(null, result);
+            }
+          );
+        } else {
+          // Pregunta verbal, obtener las respuestas de respuesta_verbal y texto_respuesta en el idioma especificado
+          mysqlConnection.query(
+            `SELECT tr.cod_respuesta_verbal, tr.texto, IFNULL(rva.cuantos, 0) AS cuantos
+            FROM respuesta_verbal rv
+            JOIN texto_respuesta tr ON rv.cod_respuesta_verbal = tr.cod_respuesta_verbal
+            LEFT JOIN respuesta_verbal_alumnos rva ON rva.cod_respuesta_verbal = tr.cod_respuesta_verbal AND rva.cod_situacion_docente IN (${placeholders})
+            WHERE rv.cod_pregunta = ? AND tr.cod_idioma = ? AND rva.cod_situacion_docente IN (${placeholders})
+            GROUP BY tr.cod_respuesta_verbal`,
+            params,
+            (err, rows, fields) => {
+              if (err) {
+                callback(err);
+                return;
+              }
+
+              const respuestas = rows.map((respuesta) => ({
+                cod_respuesta: respuesta.cod_respuesta_verbal,
+                texto: respuesta.texto,
+                cuantos: respuesta.cuantos || 0,
+              }));
+
+              const result = { ...pregunta, respuestas };
+              callback(null, result);
+            }
+          );
+        }
+      } else {
+        callback(null, {});
+      }
     }
   );
 }
@@ -766,5 +923,7 @@ module.exports = {
   getRespondidos,
   getAsignaturasPublicadas,
   getDatosSD,
-  getResultadosInformePersonal
+  getResultadosInformePersonal,
+  getSituacionesAsignatura,
+  getResultadosPregunta
 };

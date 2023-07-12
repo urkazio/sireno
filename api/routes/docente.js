@@ -287,6 +287,20 @@ router.post('/getResultadosInformePersonal', (req, res) => {
 
 
 
+// metodo que verifica credenciales llamando a la bbdd
+router.post('/getHistoricoPregunta', (req, res) => {
+  const { usuario, cod_asignatura, cod_pregunta, idioma } = req.body;
+
+  dbQuery.getSituacionesAsignatura(usuario, cod_asignatura, cod_pregunta, idioma, (err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+
 
 
 // se exporta el ruter del usuario para poder usarlo desde app.js (todas las rutas)
