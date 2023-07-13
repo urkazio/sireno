@@ -799,12 +799,20 @@ function getSituacionesAsignatura(profesor, asignatura, cod_pregunta, idioma, ca
 
 
 function getResultadosPregunta(cod_pregunta, cod_situacion_docente, idioma, callback) {
-  const placeholders = cod_situacion_docente.map(() => '?').join(', ');
-  const params = [...cod_situacion_docente, cod_pregunta, idioma, ...cod_situacion_docente];
+
+  // Obtén el último elemento del array cod_situacion_docente
+  const lastCodSituacionDocente = cod_situacion_docente[cod_situacion_docente.length - 1];
+
+  // Construye el placeholder para el último elemento
+  const placeholders = cod_situacion_docente.map(() => '?').join(', ') + ', ?';
+
+  // Agrega el último elemento al array de parámetros
+  const params = [...cod_situacion_docente, lastCodSituacionDocente, cod_pregunta, idioma, ...cod_situacion_docente];
+
 
   // Pregunta numérica, obtener las respuestas sin calcular la media
   mysqlConnection.query(
-    `SELECT rnp.cod_respuesta_numerica, IFNULL(rna.cuantos, 0) AS cuantos
+    `SELECT rnp.cod_respuesta_numerica, IFNULL(SUM(rna.cuantos), 0) AS cuantos
     FROM respuesta_numerica_de_pregunta rnp
     LEFT JOIN respuesta_numerica_alumnos rna ON rna.cod_respuesta_numerica = rnp.cod_respuesta_numerica AND rna.cod_pregunta = rnp.cod_pregunta AND rna.cod_situacion_docente IN (${placeholders})
     WHERE rnp.cod_pregunta = ? AND rna.cod_respuesta_numerica IN ('1', '2', '3', '4', '5') AND rna.cod_situacion_docente IN (${placeholders})
@@ -825,9 +833,8 @@ function getResultadosPregunta(cod_pregunta, cod_situacion_docente, idioma, call
       ];
 
       rows.forEach((respuesta) => {
-        console.log(respuesta)
         const index = parseInt(respuesta.cod_respuesta_numerica) - 1;
-        respuestas[index].cuantos = respuesta.cuantos;
+        respuestas[index].cuantos += respuesta.cuantos;
       });
 
       const result = { respuestas };
@@ -837,7 +844,194 @@ function getResultadosPregunta(cod_pregunta, cod_situacion_docente, idioma, call
 }
 
 
+// ---------- getters de la media de un conjunto de situaciones docnetyes para la comparativa de informes ----------
 
+function getMediaAsignatura(cod_asignatura, cod_encuesta, idioma, callback) {
+  mysqlConnection.query(
+    `SELECT cod_situacion_docente
+    FROM situacion_docente
+    WHERE cod_asignatura = ?`,
+    [cod_asignatura],
+    (err, rows, fields) => {
+      if (!err) {
+        const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
+        console.log(situacionesDocentes)
+        getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+function getMediaGrupo(cod_grupo, cod_encuesta, idioma, callback) {
+
+  console.log(cod_encuesta)
+
+  mysqlConnection.query(
+    `SELECT cod_situacion_docente
+    FROM situacion_docente
+    WHERE cod_grupo = ?`,
+    [cod_grupo],
+    (err, rows, fields) => {
+      if (!err) {
+        const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
+        console.log(situacionesDocentes)
+        getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+function getMediaDepartamento(cod_departamento, cod_encuesta, idioma, callback) {
+
+  mysqlConnection.query(
+    `SELECT cod_situacion_docente
+    FROM situacion_docente
+    WHERE cod_departamento = ?`,
+    [cod_departamento],
+    (err, rows, fields) => {
+      if (!err) {
+        const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
+        console.log(situacionesDocentes)
+        getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+function getMediaCurso(cod_curso, cod_encuesta, idioma, callback) {
+  mysqlConnection.query(
+    `SELECT cod_situacion_docente
+    FROM situacion_docente
+    WHERE num_curso = ?`,
+    [cod_curso],
+    (err, rows, fields) => {
+      if (!err) {
+        const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
+        console.log(situacionesDocentes)
+        getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+function getMediaTitulacion(cod_titulacion, cod_encuesta, idioma, callback) {
+  mysqlConnection.query(
+    `SELECT cod_situacion_docente
+    FROM situacion_docente
+    WHERE cod_grado = ?`,
+    [cod_titulacion],
+    (err, rows, fields) => {
+      if (!err) {
+        const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
+        console.log(situacionesDocentes)
+        getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+function getMediaCentro(cod_centro, cod_encuesta, idioma, callback) {
+  mysqlConnection.query(
+    `SELECT cod_situacion_docente
+    FROM situacion_docente
+    WHERE cod_centro = ?`,
+    [cod_centro],
+    (err, rows, fields) => {
+      if (!err) {
+        const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
+        console.log(situacionesDocentes)
+        getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+
+function getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback) {
+
+  const promises = situacionesDocentes.map((situacion) => {
+    console.log(situacion)
+    return new Promise((resolve, reject) => {
+      getResultadosInformePersonal(cod_encuesta, situacion, idioma, (err, encuesta) => {
+        if (!err) {
+          console.log(encuesta)
+          resolve(encuesta);
+        } else {
+          reject(err);
+        }
+      });
+    });
+  });
+
+  Promise.all(promises)
+    .then((results) => {
+      const jsonResult = {};
+
+      // Combinar los resultados de las encuestas
+      results.forEach((encuesta) => {
+        encuesta.forEach((respuesta) => {
+          const cod_pregunta = respuesta.cod_pregunta;
+
+          if (!jsonResult[cod_pregunta]) {
+            jsonResult[cod_pregunta] = {
+              cod_pregunta: respuesta.cod_pregunta,
+              texto_pregunta: respuesta.texto_pregunta,
+              numerica: respuesta.numerica,
+              respuestas: [],
+              media: [],
+              cuantos: 0,
+              total_respuestas: 0,
+            };
+          }
+
+          respuesta.respuestas.forEach((r) => {
+            const cod_respuesta = r.cod_respuesta;
+            const respuestaIndex = jsonResult[cod_pregunta].respuestas.findIndex(
+              (resp) => resp.cod_respuesta === cod_respuesta
+            );
+            if (respuestaIndex === -1) {
+              jsonResult[cod_pregunta].respuestas.push({ cod_respuesta, cuantos: r.cuantos });
+            } else {
+              jsonResult[cod_pregunta].respuestas[respuestaIndex].cuantos += r.cuantos;
+            }
+          });
+          jsonResult[cod_pregunta].cuantos += respuesta.respuestas.reduce((sum, r) => sum + r.cuantos, 0);
+          jsonResult[cod_pregunta].total_respuestas += respuesta.respuestas.reduce((sum, r) => sum + r.cuantos, 0);
+
+          if (respuesta.media !== '-') {
+            jsonResult[cod_pregunta].media.push(parseFloat(respuesta.media));
+          }
+        });
+      });
+
+      // Calcular la media final
+      Object.values(jsonResult).forEach((pregunta) => {
+        if (pregunta.media.length > 0) {
+          const mediaSum = pregunta.media.reduce((sum, value) => sum + value, 0);
+          pregunta.media = (mediaSum / pregunta.media.length).toFixed(2);
+        } else {
+          pregunta.media = '-';
+        }
+      });
+
+      callback(null, jsonResult);
+    })
+    .catch((err) => {
+      callback(err);
+    });
+}
 
 
 
@@ -863,5 +1057,11 @@ module.exports = {
   getDatosSD,
   getResultadosInformePersonal,
   getSituacionesAsignatura,
-  getResultadosPregunta
+  getResultadosPregunta,
+  getMediaAsignatura,
+  getMediaGrupo,
+  getMediaDepartamento,
+  getMediaCurso,
+  getMediaTitulacion,
+  getMediaCentro
 };

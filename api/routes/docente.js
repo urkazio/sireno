@@ -130,8 +130,6 @@ router.post('/desactivarCampana', (req, res) => {
 router.post('/getResultadosInformePersonal', (req, res) => {
   const { cod_encuesta, situaciones, idioma } = req.body;
 
-  console.log(situaciones);
-
   // Crear un arreglo de promesas
   const promises = situaciones.map((situacion) => {
     return new Promise((resolve, reject) => {
@@ -201,8 +199,6 @@ router.post('/getResultadosInformePersonal', (req, res) => {
           pregunta.media = '-';
         }
       });
-
-      console.log(jsonResult);
       res.json(jsonResult);
     })
     .catch((err) => {
@@ -272,22 +268,7 @@ router.post('/getDatosSD', (req, res) => {
 });
 
 
-// metodo que verifica credenciales llamando a la bbdd
-router.post('/getResultadosInformePersonal', (req, res) => {
-  const { cod_encuesta, situaciones, idioma } = req.body;
 
-  dbQuery.getResultadosInformePersonal(cod_encuesta, situaciones, idioma, (err, encuesta) => {
-    if (!err) {
-      res.json(encuesta);
-    } else {
-      res.json(err);
-    }
-  });
-});
-
-
-
-// metodo que verifica credenciales llamando a la bbdd
 router.post('/getHistoricoPregunta', (req, res) => {
   const { usuario, cod_asignatura, cod_pregunta, idioma } = req.body;
 
@@ -300,6 +281,85 @@ router.post('/getHistoricoPregunta', (req, res) => {
   });
 });
 
+
+// ---------- getters de la media de un conjunto de situaciones docnetyes para la comparativa de informes ----------
+
+router.post('/getMediaAsignatura', (req, res) => {
+  const { cod_asignatura, cod_encuesta, idioma } = req.body;
+
+  dbQuery.getMediaAsignatura(cod_asignatura, cod_encuesta, idioma,(err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+router.post('/getMediaGrupo', (req, res) => {
+  const { cod_grupo, cod_encuesta, idioma } = req.body;
+  console.log(cod_grupo)
+
+  dbQuery.getMediaGrupo(cod_grupo, cod_encuesta, idioma, (err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+router.post('/getMediaDepartamento', (req, res) => {
+  const { cod_departamento, cod_encuesta, idioma } = req.body;
+  console.log(cod_departamento)
+
+  dbQuery.getMediaDepartamento(cod_departamento, cod_encuesta, idioma, (err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+router.post('/getMediaCurso', (req, res) => {
+  const { cod_curso, cod_encuesta, idioma } = req.body;
+  console.log(cod_curso)
+
+  dbQuery.getMediaCurso(cod_curso, cod_encuesta, idioma, (err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+router.post('/getMediaTitulacion', (req, res) => {
+  const { cod_titulacion, cod_encuesta, idioma } = req.body;
+  console.log(cod_titulacion)
+
+  dbQuery.getMediaTitulacion(cod_titulacion, cod_encuesta, idioma, (err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+router.post('/getMediaCentro', (req, res) => {
+  const { cod_centro, cod_encuesta, idioma } = req.body;
+  console.log(cod_centro)
+
+  dbQuery.getMediaCentro(cod_centro, cod_encuesta, idioma, (err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
 
 
 
