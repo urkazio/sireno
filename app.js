@@ -16,10 +16,14 @@ app.use(cors());
 const userRoute = require('./api/routes/user');
 const alumRoute = require('./api/routes/alumno');
 const docenteRoute = require('./api/routes/docente');
+const adminRoute = require('./api/routes/admin');
+
 
 app.use('/user', userRoute);
 app.use('/alumno', tokenVerifier.verifyToken, alumRoute);
 app.use('/docente', tokenVerifier.verifyToken, docenteRoute);
+app.use('/admin', tokenVerifier.verifyToken, adminRoute);
+
 
 
 
