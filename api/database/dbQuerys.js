@@ -3,8 +3,6 @@ const CryptoJS = require("crypto-js");
 const config = require('../../config'); // importar el fichero que contiene la clave secreta para el token
 
 
-
-
 function getUser(user, pass, rol, callback) {
   const iterations = 1000;
   const hash = CryptoJS.PBKDF2(pass, config.saltHash, { keySize: 256/32, iterations });
@@ -855,7 +853,6 @@ function getMediaAsignatura(cod_asignatura, cod_encuesta, idioma, callback) {
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
-        console.log(situacionesDocentes)
         getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
       } else {
         callback(err);
@@ -866,8 +863,6 @@ function getMediaAsignatura(cod_asignatura, cod_encuesta, idioma, callback) {
 
 function getMediaGrupo(cod_grupo, cod_encuesta, idioma, callback) {
 
-  console.log(cod_encuesta)
-
   mysqlConnection.query(
     `SELECT cod_situacion_docente
     FROM situacion_docente
@@ -876,7 +871,6 @@ function getMediaGrupo(cod_grupo, cod_encuesta, idioma, callback) {
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
-        console.log(situacionesDocentes)
         getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
       } else {
         callback(err);
@@ -895,7 +889,6 @@ function getMediaDepartamento(cod_departamento, cod_encuesta, idioma, callback) 
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
-        console.log(situacionesDocentes)
         getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
       } else {
         callback(err);
@@ -913,7 +906,6 @@ function getMediaCurso(cod_curso, cod_encuesta, idioma, callback) {
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
-        console.log(situacionesDocentes)
         getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
       } else {
         callback(err);
@@ -931,7 +923,6 @@ function getMediaTitulacion(cod_titulacion, cod_encuesta, idioma, callback) {
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
-        console.log(situacionesDocentes)
         getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
       } else {
         callback(err);
@@ -949,7 +940,6 @@ function getMediaCentro(cod_centro, cod_encuesta, idioma, callback) {
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
-        console.log(situacionesDocentes)
         getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
       } else {
         callback(err);
@@ -962,11 +952,9 @@ function getMediaCentro(cod_centro, cod_encuesta, idioma, callback) {
 function getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback) {
 
   const promises = situacionesDocentes.map((situacion) => {
-    console.log(situacion)
     return new Promise((resolve, reject) => {
       getResultadosInformePersonal(cod_encuesta, situacion, idioma, (err, encuesta) => {
         if (!err) {
-          console.log(encuesta)
           resolve(encuesta);
         } else {
           reject(err);
@@ -1127,6 +1115,60 @@ function getCampannasValidasAdmin(callback) {
   });
 }
 
+
+function getAnnosCursos(callback) {
+  mysqlConnection.query(
+    'SELECT DISTINCT año_curso FROM campana',
+    (err, rows, fields) => {
+      if (!err && rows.length > 0) {
+        const años = rows.map(row => row.año_curso);
+        callback(null, años);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+
+function activarCampannaAdminConMensaje(situacion, fechaHoraFinActivacion, callback) {
+  const fechaHoraIni = new Date(); // Obtener la fecha y hora actual
+
+  mysqlConnection.query(
+    'INSERT INTO activacion_campana (cod_situacion_docente, fecha_hora_ini, fecha_hora_cierre, abierta_por_docente) VALUES (?, ?, ?, ?)',
+    [situacion, fechaHoraIni, fechaHoraFinActivacion, true], // true representa que está abierta por el docente
+    (err, rows, fields) => {
+      if (!err) {
+        getCorreosDeSituacion(situacion, callback); // Llamar a la segunda función dentro del callback
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+function getCorreosDeSituacion(situacion, callback) {
+  mysqlConnection.query(
+    'SELECT email FROM alumno_situacion_doc WHERE cod_situacion_docente  = ?',
+    [situacion],
+    (err, rows, fields) => {
+      if (!err) {
+        if (rows.length > 0) {
+          const email = rows.map(row => row.email);
+          callback(null, email);
+        } else {
+          callback(err);
+        }
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+
+
+
 // exportar las funciones definidas en este fichero
 module.exports = {
   getUser,
@@ -1155,5 +1197,8 @@ module.exports = {
   getMediaCurso,
   getMediaTitulacion,
   getMediaCentro,
-  getCampannasValidasAdmin
+  getCampannasValidasAdmin,
+  getAnnosCursos,
+  activarCampannaAdminConMensaje,
+  getCorreosDeSituacion
 };

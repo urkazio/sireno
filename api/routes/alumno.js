@@ -84,7 +84,6 @@ router.post('/isActiva', (req, res) => {
 // metodo que obtiene las respuestas de una encuesta
 router.post('/setRespuestas', (req, res) => {
   const { usuario, respuestas, cod_situacion_docente } = req.body;
-  console.log(respuestas);
 
   mysqlConnection.getSDsAlumno(usuario, (err, situaciones_docentes) => {
     if (!err) {

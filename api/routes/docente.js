@@ -3,7 +3,6 @@ const router = express.Router();
 const dbQuery = require('../database/dbQuerys'); // Importa el archivo "dbQuery.js"
 
 
-// metodo que verifica credenciales llamando a la bbdd
 router.post('/getCampannas', (req, res) => {
   const { usuario } = req.body;
 
@@ -17,7 +16,6 @@ router.post('/getCampannas', (req, res) => {
 });
 
 
-// metodo que verifica credenciales llamando a la bbdd
 router.post('/isValida', (req, res) => {
   const { situacion } = req.body;
 
@@ -31,7 +29,7 @@ router.post('/isValida', (req, res) => {
 });
 
 
-// Metodo que verifica credenciales llamando a la bbdd
+
 router.post("/abrirCampanna", (req, res) => {
   const { situaciones, fechaHoraFinActivacion } = req.body;
 
@@ -84,6 +82,38 @@ router.post("/abrirCampanna", (req, res) => {
     })
     .catch((err) => {
       res.status(401).json({ error: 'Error en el proceso de apertura de la campaña' });
+    });
+});
+
+
+router.post('/getRespondidos', (req, res) => {
+  const { situaciones } = req.body;
+
+  // Crear un arreglo de promesas
+  const promises = situaciones.map((situacion) => {
+    return new Promise((resolve, reject) => {
+      dbQuery.getRespondidos(situacion, (err, n_alum_respondido) => {
+        if (!err) {
+          // Verificar si n_alum_respondido es un número y agregarlo a la suma
+          if (typeof n_alum_respondido === 'number') {
+            resolve(n_alum_respondido); // Resolvemos la promesa con el n_alum_respondido
+          } else {
+            resolve(0); // Si no es un número, resolvemos la promesa con 0
+          }
+        } else {
+          reject(err);
+        }
+      });
+    });
+  });
+  // Ejecutar todas las promesas y realizar la suma de n_alum_respondido
+  Promise.all(promises)
+    .then((results) => {
+      const suma = results.reduce((acc, curr) => acc + curr, 0);
+      res.json({ suma });
+    })
+    .catch((err) => {
+      res.status(500).json({ error: 'Error al obtener el numero de respondidos' });
     });
 });
 
@@ -298,7 +328,6 @@ router.post('/getMediaAsignatura', (req, res) => {
 
 router.post('/getMediaGrupo', (req, res) => {
   const { cod_grupo, cod_encuesta, idioma } = req.body;
-  console.log(cod_grupo)
 
   dbQuery.getMediaGrupo(cod_grupo, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
@@ -311,7 +340,6 @@ router.post('/getMediaGrupo', (req, res) => {
 
 router.post('/getMediaDepartamento', (req, res) => {
   const { cod_departamento, cod_encuesta, idioma } = req.body;
-  console.log(cod_departamento)
 
   dbQuery.getMediaDepartamento(cod_departamento, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
@@ -324,7 +352,6 @@ router.post('/getMediaDepartamento', (req, res) => {
 
 router.post('/getMediaCurso', (req, res) => {
   const { cod_curso, cod_encuesta, idioma } = req.body;
-  console.log(cod_curso)
 
   dbQuery.getMediaCurso(cod_curso, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
@@ -337,7 +364,6 @@ router.post('/getMediaCurso', (req, res) => {
 
 router.post('/getMediaTitulacion', (req, res) => {
   const { cod_titulacion, cod_encuesta, idioma } = req.body;
-  console.log(cod_titulacion)
 
   dbQuery.getMediaTitulacion(cod_titulacion, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
@@ -350,7 +376,6 @@ router.post('/getMediaTitulacion', (req, res) => {
 
 router.post('/getMediaCentro', (req, res) => {
   const { cod_centro, cod_encuesta, idioma } = req.body;
-  console.log(cod_centro)
 
   dbQuery.getMediaCentro(cod_centro, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
