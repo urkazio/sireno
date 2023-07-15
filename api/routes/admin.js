@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const dbQuery = require('../database/dbQuerys'); // Importa el archivo "dbQuery.js"
-const nodemailer = require('nodemailer');
 
 
 router.post('/getCampannas', (req, res) => {
@@ -43,9 +42,12 @@ router.post("/abrirCampannaConMensaje", (req, res) => {
                 // sumar 1 a veces_abierta de la tabla situaciones
                 dbQuery.updateVecesAbierta(situacion, (err, rdo) => {
                   if (!err) {
+                    resolve(rdo);
+                    /*
                     mandarEmails(mensaje, cod_usuarios)
                       .then(() => resolve(rdo))
                       .catch((err) => reject(err));
+                      */
                   } else {
                     reject(err);
                   }

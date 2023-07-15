@@ -1139,6 +1139,7 @@ function activarCampannaAdminConMensaje(situacion, fechaHoraFinActivacion, callb
     [situacion, fechaHoraIni, fechaHoraFinActivacion, true], // true representa que está abierta por el docente
     (err, rows, fields) => {
       if (!err) {
+        console.log("activarCampannaAdminConMensaje")
         getCorreosDeSituacion(situacion, callback); // Llamar a la segunda función dentro del callback
       } else {
         callback(err);
@@ -1149,15 +1150,28 @@ function activarCampannaAdminConMensaje(situacion, fechaHoraFinActivacion, callb
 
 function getCorreosDeSituacion(situacion, callback) {
   mysqlConnection.query(
-    'SELECT email FROM alumno_situacion_doc WHERE cod_situacion_docente  = ?',
+    'SELECT cod_alumno FROM alumno_situacion_doc WHERE cod_situacion_docente = ?',
     [situacion],
     (err, rows, fields) => {
       if (!err) {
         if (rows.length > 0) {
-          const email = rows.map(row => row.email);
-          callback(null, email);
+          const cod_alumnos = rows.map(row => row.cod_alumno);
+
+          mysqlConnection.query(
+            'SELECT email FROM usuario WHERE cod_usuario IN (?)',
+            [cod_alumnos],
+            (err, rows, fields) => {
+              if (!err) {
+                const correos = rows.map(row => row.email);
+                console.log(correos)
+                callback(null, correos);
+              } else {
+                callback(err);
+              }
+            }
+          );
         } else {
-          callback(err);
+          callback('No se encontraron alumnos para la situación especificada');
         }
       } else {
         callback(err);
@@ -1165,6 +1179,7 @@ function getCorreosDeSituacion(situacion, callback) {
     }
   );
 }
+
 
 
 
