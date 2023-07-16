@@ -2,6 +2,7 @@ const express = require('express');
 const tokenverifier = express();
 const config = require('./config');
 const jwt = require('jsonwebtoken');
+const dbQuery = require('./api/database/dbQuerys'); // Importa el archivo "dbQuery.js"
 
 
 function verifyToken(req, res, next) {
@@ -29,35 +30,57 @@ function verifyToken(req, res, next) {
 
 
 function verifyDocente(req, res, next){
-    const { rol } = req.body;
+    const token = req.headers.authorization.substring(7);
+    const secretKey = config.secretKey;
+    const content = jwt.verify(token, secretKey);
 
-    if (rol !== "0") {
-        return res.status(401).json('No autorizado 0')
-    }
-    console.log("es docente");
-    next();
+    dbQuery.getRole(content["usuario"], (err, role) => {
+        if (err) {
+        console.error(err);
+        return res.status(500).json("Error al obtener el rol del usuario");
+        }
+        if (role !== "0") {
+        return res.status(401).json("No autorizado 2");
+        }
+        next();
+    });
 }
 
 function verifyAlumno(req, res, next){
-    const { rol } = req.body;
+    const token = req.headers.authorization.substring(7);
+    const secretKey = config.secretKey;
+    const content = jwt.verify(token, secretKey);
 
-    if (rol !== "1") {
-        return res.status(401).json('No autorizado 1')
-    }
-    console.log("es alumno");
-    next();
+    dbQuery.getRole(content["usuario"], (err, role) => {
+        if (err) {
+        console.error(err);
+        return res.status(500).json("Error al obtener el rol del usuario");
+        }
+        if (role !== "1") {
+        return res.status(401).json("No autorizado 2");
+        }
+        next();
+    });
 }
 
-function verifyAdmin(req, res, next){
-    const { rol } = req.body;
+function verifyAdmin(req, res, next) {
+ 
+    const token = req.headers.authorization.substring(7);
+    const secretKey = config.secretKey;
+    const content = jwt.verify(token, secretKey);
 
-    if (rol !== "2") {
-        return res.status(401).json('No autorizado 2')
-    }
-    console.log("es admin");
-    next();
+    dbQuery.getRole(content["usuario"], (err, role) => {
+        if (err) {
+        console.error(err);
+        return res.status(500).json("Error al obtener el rol del usuario");
+        }
+        if (role !== "2") {
+        return res.status(401).json("No autorizado 2");
+        }
+        next();
+    });
 }
-
+  
 module.exports = { verifyToken: 
     verifyToken, 
     verifyAlumno,

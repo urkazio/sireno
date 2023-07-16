@@ -4,8 +4,10 @@ const dbQuery = require('../database/dbQuerys'); // Importa el archivo "dbQuery.
 
 
 router.post('/getCampannas', (req, res) => {
+
+  const { ratio_respuestas, año_curso } = req.body;
   
-    dbQuery.getCampannasValidasAdmin((err, campannas) => {
+    dbQuery.getCampannasValidasAdmin(año_curso, ratio_respuestas, (err, campannas) => {
       if (!err) {
         res.json(campannas);
       } else {
@@ -25,7 +27,73 @@ router.post('/getAnnosCursos', (req, res) => {
   });
 });
 
+router.post('/getRespondidos', (req, res) => {
+  const { situaciones } = req.body;
 
+  // Crear un arreglo de promesas
+  const promises = situaciones.map((situacion) => {
+    return new Promise((resolve, reject) => {
+      dbQuery.getRespondidos(situacion, (err, n_alum_respondido) => {
+        if (!err) {
+          // Verificar si n_alum_respondido es un número y agregarlo a la suma
+          if (typeof n_alum_respondido === 'number') {
+            resolve(n_alum_respondido); // Resolvemos la promesa con el n_alum_respondido
+          } else {
+            resolve(0); // Si no es un número, resolvemos la promesa con 0
+          }
+        } else {
+          reject(err);
+        }
+      });
+    });
+  });
+  // Ejecutar todas las promesas y realizar la suma de n_alum_respondido
+  Promise.all(promises)
+    .then((results) => {
+      const suma = results.reduce((acc, curr) => acc + curr, 0);
+      res.json({ suma });
+    })
+    .catch((err) => {
+      res.status(500).json({ error: 'Error al obtener el numero de respondidos' });
+    });
+});
+
+
+router.post('/desactivarCampana', (req, res) => {
+  const { situaciones } = req.body;
+
+  // Crear un arreglo de promesas
+  const promises = situaciones.map((situacion) => {
+    return new Promise((resolve, reject) => {
+      dbQuery.isActiva(situacion, (err, isActive) => {
+        if (!err) {
+          if (isActive) {
+            dbQuery.desactivarCampana(situacion, (err, rdo) => {
+              if (!err) {
+                resolve(rdo); // Resolvemos la promesa con el resultado
+              } else {
+                reject(err);
+              }
+            });
+          }
+        } else {
+          // Si es activa, resolvemos la promesa con null
+          resolve(null);
+        }
+      });
+    });
+  });
+
+  // Ejecutar todas las promesas y enviar la respuesta una vez que todas se resuelvan
+  Promise.all(promises)
+    .then((results) => {
+      res.json(results);
+      // Enviamos la respuesta con los resultados
+    })
+    .catch((err) => {
+      res.status(401).json({ error: 'Error en el proceso de desactivación de la campaña' });
+    });
+});
 
 router.post("/abrirCampannaConMensaje", (req, res) => {
   const { mensaje, situaciones, fechaHoraFinActivacion } = req.body;

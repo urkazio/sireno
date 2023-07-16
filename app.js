@@ -20,9 +20,9 @@ const adminRoute = require('./api/routes/admin');
 
 
 app.use('/user', userRoute);
-app.use('/alumno', tokenVerifier.verifyToken, alumRoute);
-app.use('/docente', tokenVerifier.verifyToken, docenteRoute);
-app.use('/admin', tokenVerifier.verifyToken, adminRoute);
+app.use('/alumno', tokenVerifier.verifyToken, tokenVerifier.verifyAlumno, alumRoute);
+app.use('/docente', tokenVerifier.verifyToken, tokenVerifier.verifyDocente, docenteRoute);
+app.use('/admin', tokenVerifier.verifyToken, tokenVerifier.verifyAdmin, adminRoute);
 
 
 

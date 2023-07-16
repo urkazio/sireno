@@ -1024,8 +1024,7 @@ function getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback) {
 
 //---------------------------------- admins ----------------------------------------------
 
-function getCampannasValidasAdmin(callback) {
-
+function getCampannasValidasAdmin(año_curso, ratio_respuestas, callback) {
   const currentDate = new Date().toLocaleString('es-ES', {
     timeZone: 'Europe/Madrid',
     year: 'numeric',
@@ -1035,9 +1034,8 @@ function getCampannasValidasAdmin(callback) {
     minute: '2-digit',
     second: '2-digit',
   }).replace(/(\d+)\/(\d+)\/(\d+),/, '$3-$2-$1');
-    
 
-  const query = `
+  let query = `
     SELECT sd.cod_situacion_docente, sd.n_alum_total, sd.n_alum_respondido, a.nombre_Asignatura, c.fecha_fin, sd.num_curso, c.año_curso, sd.activada, sd.agrupado_con, ac.fecha_hora_cierre
     FROM situacion_docente sd
     INNER JOIN campana c ON sd.cod_campana = c.cod_campana
@@ -1048,8 +1046,13 @@ function getCampannasValidasAdmin(callback) {
       WHERE '${currentDate}' <= fecha_hora_cierre
       GROUP BY cod_situacion_docente
     ) ac_latest ON sd.cod_situacion_docente = ac_latest.cod_situacion_docente
-    LEFT JOIN activacion_campana ac ON ac_latest.cod_situacion_docente = ac.cod_situacion_docente AND ac_latest.max_fecha_hora_ini = ac.fecha_hora_ini
-    WHERE '${currentDate}' BETWEEN c.fecha_ini AND c.fecha_fin
+    LEFT JOIN activacion_campana ac ON ac_latest.cod_situacion_docente = ac.cod_situacion_docente AND ac_latest.max_fecha_hora_ini = ac.fecha_hora_ini`;
+
+  if (año_curso !== '*') {
+    query += ` WHERE c.año_curso = ?`;
+  }
+
+  query += `
     ORDER BY
       CASE WHEN ac.fecha_hora_cierre IS NOT NULL THEN 0 ELSE 1 END, 
       CASE WHEN ac.fecha_hora_cierre IS NULL THEN 1 ELSE 0 END, 
@@ -1059,22 +1062,9 @@ function getCampannasValidasAdmin(callback) {
       c.fecha_fin ASC
   `;
 
-  /**************************** CRITERIOS DE ORDENACION DE LAS CAMPAÑAS DEVUELTAS ***************************** 
+  const queryParams = (año_curso !== '*') ? [año_curso] : [];
 
-  --> CRITERIO PRINCIPAL
-    -- Mostrar primero las campañas activas: aquellas situaciones docentes con fecha_hora_cierre no nula
-
-  --> CAMPAÑAS ACTIVAS (ENCUESTA ABIERTA)
-    -- Ordenar por fecha_hora_cierre ascendente
-    -- En caso de empate, ordenar por veces_abierta ascendente: primero las que menos veces han sido abiertas
-
-  --> CAMPAÑAS INACTIVA (ENCUESTA CERRADA)
-    -- Primero las que menos veces han sido abiertas: Ordenar por veces_activada ascendente para las situaciones docentes con fecha_hora_cierre NULL
-    -- En caso de empate, se muestran primero las que tienen fecha de expiracion proxima: Ordenar por fecha_fin ascendente
-
-  **************************************************************************************************************/
-
-  mysqlConnection.query(query, (err, rows, fields) => {
+  mysqlConnection.query(query, queryParams, (err, rows, fields) => {
     if (!err) {
       const situacionesDocentes = []; // Array para almacenar las situaciones docentes individuales
       const agrupados = {}; // Objeto para almacenar las situaciones docentes agrupadas
@@ -1108,12 +1098,20 @@ function getCampannasValidasAdmin(callback) {
         }
       });
 
-      callback(null, situacionesDocentes);
+      // Filtrar las campañas según el ratio de respuestas
+      const campañasFiltradas = situacionesDocentes.filter(row => {
+        const { n_alum_respondido, n_alum_total } = row;
+          const ratio = n_alum_respondido/n_alum_total;
+          return ratio <= ratio_respuestas;
+      });
+
+      callback(null, campañasFiltradas);
     } else {
       callback(err);
     }
   });
 }
+
 
 
 function getAnnosCursos(callback) {
@@ -1136,10 +1134,9 @@ function activarCampannaAdminConMensaje(situacion, fechaHoraFinActivacion, callb
 
   mysqlConnection.query(
     'INSERT INTO activacion_campana (cod_situacion_docente, fecha_hora_ini, fecha_hora_cierre, abierta_por_docente) VALUES (?, ?, ?, ?)',
-    [situacion, fechaHoraIni, fechaHoraFinActivacion, true], // true representa que está abierta por el docente
+    [situacion, fechaHoraIni, fechaHoraFinActivacion, false], // true representa que está abierta por el docente
     (err, rows, fields) => {
       if (!err) {
-        console.log("activarCampannaAdminConMensaje")
         getCorreosDeSituacion(situacion, callback); // Llamar a la segunda función dentro del callback
       } else {
         callback(err);
@@ -1163,7 +1160,6 @@ function getCorreosDeSituacion(situacion, callback) {
             (err, rows, fields) => {
               if (!err) {
                 const correos = rows.map(row => row.email);
-                console.log(correos)
                 callback(null, correos);
               } else {
                 callback(err);
