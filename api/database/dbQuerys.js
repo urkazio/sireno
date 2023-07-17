@@ -464,7 +464,6 @@ function activarCampanna(situacion, fechaHoraFinActivacion, callback) {
 
 
 function updateVecesAbierta(situacion, callback) {
-  console.log("updateVecesAbierta")
   mysqlConnection.query(
     'UPDATE situacion_docente SET activada = activada + 1 WHERE cod_situacion_docente = ?',
     [situacion],
@@ -1204,35 +1203,57 @@ function activarCampannaAdminConMensaje(situacion, fechaHoraFinActivacion, callb
   );
 }
 
-function getCorreosDeSituacion(situacion, callback) {
-  mysqlConnection.query(
-    'SELECT cod_alumno FROM alumno_situacion_doc WHERE cod_situacion_docente = ?',
-    [situacion],
-    (err, rows, fields) => {
-      if (!err) {
-        if (rows.length > 0) {
-          const cod_alumnos = rows.map(row => row.cod_alumno);
+function getCorreosDeSituacion(situaciones, callback) {
+  const correosTotales = [];
 
-          mysqlConnection.query(
-            'SELECT email FROM usuario WHERE cod_usuario IN (?)',
-            [cod_alumnos],
-            (err, rows, fields) => {
-              if (!err) {
-                const correos = rows.map(row => row.email);
-                console.log(situacion)
-                console.log(correos)
-                callback(null, correos);
-              } else {
-                callback(err);
+  const obtenerCorreos = (situacion, callback) => {
+    mysqlConnection.query(
+      'SELECT cod_alumno FROM alumno_situacion_doc WHERE cod_situacion_docente = ?',
+      [situacion],
+      (err, rows, fields) => {
+        if (!err) {
+          if (rows.length > 0) {
+            const cod_alumnos = rows.map(row => row.cod_alumno);
+
+            mysqlConnection.query(
+              'SELECT email FROM usuario WHERE cod_usuario IN (?)',
+              [cod_alumnos],
+              (err, rows, fields) => {
+                if (!err) {
+                  const correos = rows.map(row => row.email);
+                  correosTotales.push(...correos);
+                  callback(null);
+                } else {
+                  callback(err);
+                }
               }
-            }
-          );
+            );
+          } else {
+            callback(null);
+          }
+        } else {
+          callback(err);
         }
-      } else {
-        callback(err);
       }
+    );
+  };
+
+  const obtenerCorreosRecursivo = (index) => {
+    if (index < situaciones.length) {
+      const situacion = situaciones[index];
+      obtenerCorreos(situacion, (err) => {
+        if (!err) {
+          obtenerCorreosRecursivo(index + 1);
+        } else {
+          callback(err);
+        }
+      });
+    } else {
+      callback(null, correosTotales);
     }
-  );
+  };
+
+  obtenerCorreosRecursivo(0);
 }
 
 

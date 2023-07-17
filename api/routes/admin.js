@@ -133,11 +133,9 @@ router.post("/abrirCampannaAdmin", (req, res) => {
   // Ejecutar todas las promesas y enviar la respuesta una vez que todas se resuelvan
   Promise.all(promises)
     .then((results) => {
-      console.log("results " +results)
       res.json(true);
     })
     .catch((err) => {
-      console.log("err "+err)
       res.json(err);
     });
 });
@@ -146,35 +144,17 @@ router.post("/abrirCampannaAdmin", (req, res) => {
 router.post("/mandarMensajeApertura", (req, res) => {
   const { mensaje, situaciones } = req.body;
 
-  // Crear un arreglo de promesas
-  const promises = situaciones.map((situacion) => {
-    return new Promise((resolve, reject) => {
-      console.log(situacion)
-      dbQuery.getCorreosDeSituacion(situacion, (err, correos) => {
-        if (!err) {
-          /*
-          mandarEmails(mensaje, correos)
-            .then(() => resolve(rdo))
-            .catch((err) => reject(err));
-          */
-        } else {
-          reject(err);
-        }
-      });
-    });
-  });
+  dbQuery.getCorreosDeSituacion(situaciones, (err, correos) => {
+    if (!err) {
 
-  // Ejecutar todas las promesas y enviar la respuesta una vez que todas se resuelvan
-  Promise.all(promises)
-    .then((results) => {
-      console.log("results " +results)
-      res.json(true);
-    })
-    .catch((err) => {
-      console.log("err "+err)
+      res.json(correos);
+    } else {
       res.json(err);
-    });
+    }
+  });
 });
+
+
 
 
 function mandarEmails(mensaje, cod_usuarios) {
