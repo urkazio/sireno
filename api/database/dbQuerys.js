@@ -464,6 +464,7 @@ function activarCampanna(situacion, fechaHoraFinActivacion, callback) {
 
 
 function updateVecesAbierta(situacion, callback) {
+  console.log("updateVecesAbierta")
   mysqlConnection.query(
     'UPDATE situacion_docente SET activada = activada + 1 WHERE cod_situacion_docente = ?',
     [situacion],
@@ -478,12 +479,70 @@ function updateVecesAbierta(situacion, callback) {
 }
 
 
-function desactivarCampana(situacion, callback) {
+function desactivarCampana(situacion, fecha_hora_cierre, callback) {
+
+  const fechaHora = new Date(fecha_hora_cierre);
+
+  const año = fechaHora.getFullYear();
+  const mes = fechaHora.getMonth() < 9 ? '0' + (fechaHora.getMonth() + 1) : fechaHora.getMonth() + 1;
+  const día = fechaHora.getDate() < 10 ? '0' + fechaHora.getDate() : fechaHora.getDate();
+  const horas = fechaHora.getHours() < 10 ? '0' + fechaHora.getHours() : fechaHora.getHours();
+  const minutos = fechaHora.getMinutes() < 10 ? '0' + fechaHora.getMinutes() : fechaHora.getMinutes();
+  const segundos = fechaHora.getSeconds() < 10 ? '0' + fechaHora.getSeconds() : fechaHora.getSeconds();
+
+  const fechaHoraFormateada = `${año}-${mes}-${día} ${horas}:${minutos}:${segundos}`;
+
+  mysqlConnection.query(
+    'SELECT abierta_por_docente FROM activacion_campana WHERE cod_situacion_docente = ? AND fecha_hora_cierre = ?',
+    [situacion, fechaHoraFormateada],
+    (err, rows, fields) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      // Verificar si está abierta por el docente
+      if (rows.length > 0 && rows[0].abierta_por_docente) {
+        const fechaHoraCierre = new Date(); // Obtener la fecha y hora actual
+
+        mysqlConnection.query(
+          'UPDATE activacion_campana SET fecha_hora_cierre = ? WHERE cod_situacion_docente = ? AND fecha_hora_cierre = ?',
+          [fechaHoraCierre, situacion, fechaHoraFormateada],
+          (err, rows, fields) => {
+            if (!err && rows.affectedRows > 0) {
+              callback(null, true); // La actualización se realizó correctamente
+            } else {
+              callback(err || "No se encontraron filas para actualizar.");
+            }
+          }
+        );
+      } else {
+        callback("Encuesta abierta por admin");
+      }
+    }
+  );
+}
+
+
+function desactivarCampanaAdmin(situacion, fecha_hora_cierre, callback) {
+
+  const fechaHora = new Date(fecha_hora_cierre);
+
+  const año = fechaHora.getFullYear();
+  const mes = fechaHora.getMonth() < 9 ? '0' + (fechaHora.getMonth() + 1) : fechaHora.getMonth() + 1;
+  const día = fechaHora.getDate() < 10 ? '0' + fechaHora.getDate() : fechaHora.getDate();
+  const horas = fechaHora.getHours() < 10 ? '0' + fechaHora.getHours() : fechaHora.getHours();
+  const minutos = fechaHora.getMinutes() < 10 ? '0' + fechaHora.getMinutes() : fechaHora.getMinutes();
+  const segundos = fechaHora.getSeconds() < 10 ? '0' + fechaHora.getSeconds() : fechaHora.getSeconds();
+
+  const fechaHoraFormateada = `${año}-${mes}-${día} ${horas}:${minutos}:${segundos}`;
+
+
   const fechaHoraCierre = new Date(); // Obtener la fecha y hora actual
 
   mysqlConnection.query(
-    'UPDATE activacion_campana SET fecha_hora_cierre = ? WHERE cod_situacion_docente = ?',
-    [fechaHoraCierre, situacion], // true representa que está abierta por el docente
+    'UPDATE activacion_campana SET fecha_hora_cierre = ? WHERE cod_situacion_docente = ? AND fecha_hora_cierre = ?',
+    [fechaHoraCierre, situacion, fechaHoraFormateada], // true representa que está abierta por el docente
     (err, rows, fields) => {
       if (!err && rows.affectedRows > 0) {
         callback(null, true); // La actualización se realizó correctamente
@@ -1137,7 +1196,7 @@ function activarCampannaAdminConMensaje(situacion, fechaHoraFinActivacion, callb
     [situacion, fechaHoraIni, fechaHoraFinActivacion, false], // true representa que está abierta por el docente
     (err, rows, fields) => {
       if (!err) {
-        getCorreosDeSituacion(situacion, callback); // Llamar a la segunda función dentro del callback
+        callback(null);
       } else {
         callback(err);
       }
@@ -1160,14 +1219,14 @@ function getCorreosDeSituacion(situacion, callback) {
             (err, rows, fields) => {
               if (!err) {
                 const correos = rows.map(row => row.email);
+                console.log(situacion)
+                console.log(correos)
                 callback(null, correos);
               } else {
                 callback(err);
               }
             }
           );
-        } else {
-          callback('No se encontraron alumnos para la situación especificada');
         }
       } else {
         callback(err);
@@ -1196,6 +1255,7 @@ module.exports = {
   activarCampanna,
   updateVecesAbierta,
   desactivarCampana,
+  desactivarCampanaAdmin,
   getRespondidos,
   getAsignaturasPublicadas,
   getDatosSD,

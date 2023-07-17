@@ -120,7 +120,7 @@ router.post('/getRespondidos', (req, res) => {
 
 
 router.post('/desactivarCampana', (req, res) => {
-  const { situaciones } = req.body;
+  const { situaciones, fecha_hora_cierre } = req.body;
 
   // Crear un arreglo de promesas
   const promises = situaciones.map((situacion) => {
@@ -128,7 +128,7 @@ router.post('/desactivarCampana', (req, res) => {
       dbQuery.isActiva(situacion, (err, isActive) => {
         if (!err) {
           if (isActive) {
-            dbQuery.desactivarCampana(situacion, (err, rdo) => {
+            dbQuery.desactivarCampana(situacion, fecha_hora_cierre, (err, rdo) => {
               if (!err) {
                 resolve(rdo); // Resolvemos la promesa con el resultado
               } else {
@@ -151,7 +151,9 @@ router.post('/desactivarCampana', (req, res) => {
       // Enviamos la respuesta con los resultados
     })
     .catch((err) => {
-      res.status(401).json({ error: 'Error en el proceso de desactivación de la campaña' });
+      res.json(err);
+
+      //res.status(401).json({ error: err });
     });
 });
 

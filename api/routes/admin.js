@@ -60,7 +60,7 @@ router.post('/getRespondidos', (req, res) => {
 
 
 router.post('/desactivarCampana', (req, res) => {
-  const { situaciones } = req.body;
+  const { situaciones, fecha_hora_cierre } = req.body;
 
   // Crear un arreglo de promesas
   const promises = situaciones.map((situacion) => {
@@ -68,7 +68,7 @@ router.post('/desactivarCampana', (req, res) => {
       dbQuery.isActiva(situacion, (err, isActive) => {
         if (!err) {
           if (isActive) {
-            dbQuery.desactivarCampana(situacion, (err, rdo) => {
+            dbQuery.desactivarCampanaAdmin(situacion, fecha_hora_cierre, (err, rdo) => {
               if (!err) {
                 resolve(rdo); // Resolvemos la promesa con el resultado
               } else {
@@ -95,8 +95,8 @@ router.post('/desactivarCampana', (req, res) => {
     });
 });
 
-router.post("/abrirCampannaConMensaje", (req, res) => {
-  const { mensaje, situaciones, fechaHoraFinActivacion } = req.body;
+router.post("/abrirCampannaAdmin", (req, res) => {
+  const { situaciones, fechaHoraFinActivacion } = req.body;
 
   // Crear un arreglo de promesas
   const promises = situaciones.map((situacion) => {
@@ -111,11 +111,6 @@ router.post("/abrirCampannaConMensaje", (req, res) => {
                 dbQuery.updateVecesAbierta(situacion, (err, rdo) => {
                   if (!err) {
                     resolve(rdo);
-                    /*
-                    mandarEmails(mensaje, cod_usuarios)
-                      .then(() => resolve(rdo))
-                      .catch((err) => reject(err));
-                      */
                   } else {
                     reject(err);
                   }
@@ -138,12 +133,49 @@ router.post("/abrirCampannaConMensaje", (req, res) => {
   // Ejecutar todas las promesas y enviar la respuesta una vez que todas se resuelvan
   Promise.all(promises)
     .then((results) => {
-      res.json(results);
+      console.log("results " +results)
+      res.json(true);
     })
     .catch((err) => {
-      res.status(401).json({ error: 'Error en el proceso de apertura de la campaña' });
+      console.log("err "+err)
+      res.json(err);
     });
 });
+
+
+router.post("/mandarMensajeApertura", (req, res) => {
+  const { mensaje, situaciones } = req.body;
+
+  // Crear un arreglo de promesas
+  const promises = situaciones.map((situacion) => {
+    return new Promise((resolve, reject) => {
+      console.log(situacion)
+      dbQuery.getCorreosDeSituacion(situacion, (err, correos) => {
+        if (!err) {
+          /*
+          mandarEmails(mensaje, correos)
+            .then(() => resolve(rdo))
+            .catch((err) => reject(err));
+          */
+        } else {
+          reject(err);
+        }
+      });
+    });
+  });
+
+  // Ejecutar todas las promesas y enviar la respuesta una vez que todas se resuelvan
+  Promise.all(promises)
+    .then((results) => {
+      console.log("results " +results)
+      res.json(true);
+    })
+    .catch((err) => {
+      console.log("err "+err)
+      res.json(err);
+    });
+});
+
 
 function mandarEmails(mensaje, cod_usuarios) {
   return new Promise((resolve, reject) => {
@@ -165,7 +197,7 @@ function mandarEmails(mensaje, cod_usuarios) {
 
     transporter.sendMail(mailOptions, (err) => {
       if (!err) {
-        resolve();
+        resolve(true);
       } else {
         reject(err);
       }
