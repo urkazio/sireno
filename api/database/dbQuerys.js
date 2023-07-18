@@ -1205,7 +1205,7 @@ function activarCampannaAdminConMensaje(situacion, fechaHoraFinActivacion, callb
 
 function getCorreosDeSituacion(situaciones, callback) {
   const correosTotales = [];
-
+  
   const obtenerCorreos = (situacion, callback) => {
     mysqlConnection.query(
       'SELECT cod_alumno FROM alumno_situacion_doc WHERE cod_situacion_docente = ?',

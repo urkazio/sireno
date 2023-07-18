@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const dbQuery = require('../database/dbQuerys'); // Importa el archivo "dbQuery.js"
+const nodemailer = require('nodemailer');
+const config = require('../../config'); // Importa la configuración desde config.js
 
 
 router.post('/getCampannas', (req, res) => {
@@ -142,10 +144,38 @@ router.post("/abrirCampannaAdmin", (req, res) => {
 
 
 router.post("/mandarMensajeApertura", (req, res) => {
-  const { mensaje, situaciones } = req.body;
+  const { asunto, mensaje, situaciones } = req.body;
 
   dbQuery.getCorreosDeSituacion(situaciones, (err, correos) => {
     if (!err) {
+      // Configurar el transporte de correo
+      const transporter = nodemailer.createTransport({
+        // Configura el servicio de correo y las credenciales necesarias
+        service: 'Gmail',
+        auth: {
+          user: 'urkogarcia12@gmail.com', // Dirección de correo electrónico remitente
+          pass: config.pass_email // Utiliza la contraseña desde config.js
+        }
+      });
+      console.log(correos)
+      // Iterar sobre cada correo electrónico y enviar el mensaje
+      correos.forEach((correo) => {
+        console.log(correo)
+        const mailOptions = {
+          from: 'urkogarcia12@gmail.com', // Dirección de correo electrónico remitente
+          to: correo,
+          subject: asunto,
+          text: mensaje
+        };
+
+        // Enviar el correo electrónico
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+          } else {
+            console.log('Correo enviado: ' + info.response);
+          }
+        });
+      });
 
       res.json(correos);
     } else {
@@ -153,38 +183,6 @@ router.post("/mandarMensajeApertura", (req, res) => {
     }
   });
 });
-
-
-
-
-function mandarEmails(mensaje, cod_usuarios) {
-  return new Promise((resolve, reject) => {
-    const transporter = nodemailer.createTransport({
-      // Configuración del transporte de correo electrónico (puedes ajustar esto según tus necesidades)
-      service: 'Gmail',
-      auth: {
-        user: 'tu_email@gmail.com',
-        pass: 'tu_contraseña',
-      },
-    });
-
-    const mailOptions = {
-      from: 'tu_email@gmail.com',
-      to: cod_usuarios.join(','),
-      subject: 'Asunto del correo',
-      text: mensaje,
-    };
-
-    transporter.sendMail(mailOptions, (err) => {
-      if (!err) {
-        resolve(true);
-      } else {
-        reject(err);
-      }
-    });
-  });
-}
-
 
 
 // se exporta el ruter del usuario para poder usarlo desde app.js (todas las rutas)
