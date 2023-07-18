@@ -17,12 +17,14 @@ const userRoute = require('./api/routes/user');
 const alumRoute = require('./api/routes/alumno');
 const docenteRoute = require('./api/routes/docente');
 const adminRoute = require('./api/routes/admin');
+const publicRoute = require('./api/routes/public');
 
 
 app.use('/user', userRoute);
 app.use('/alumno', tokenVerifier.verifyToken, tokenVerifier.verifyAlumno, alumRoute);
 app.use('/docente', tokenVerifier.verifyToken, tokenVerifier.verifyDocente, docenteRoute);
 app.use('/admin', tokenVerifier.verifyToken, tokenVerifier.verifyAdmin, adminRoute);
+app.use('/public', tokenVerifier.verifyToken, publicRoute);
 
 
 

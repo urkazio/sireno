@@ -735,11 +735,11 @@ function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idiom
                   reject(err);
                 } else {
                   const respuestas = [
-                    { cod_respuesta: '1', cuantos: 0 },
-                    { cod_respuesta: '2', cuantos: 0 },
-                    { cod_respuesta: '3', cuantos: 0 },
-                    { cod_respuesta: '4', cuantos: 0 },
-                    { cod_respuesta: '5', cuantos: 0 }
+                    { cod_respuesta: '1', cuantos: 0, texto_respuesta: '' },
+                    { cod_respuesta: '2', cuantos: 0, texto_respuesta: '' },
+                    { cod_respuesta: '3', cuantos: 0, texto_respuesta: '' },
+                    { cod_respuesta: '4', cuantos: 0, texto_respuesta: '' },
+                    { cod_respuesta: '5', cuantos: 0, texto_respuesta: '' }
                   ];
 
                   rows.forEach((respuesta) => {
@@ -769,8 +769,8 @@ function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idiom
                 } else {
                   const respuestas = rows.map((respuesta) => ({
                     cod_respuesta: respuesta.cod_respuesta_verbal,
-                    texto: respuesta.texto,
                     cuantos: respuesta.cuantos || 0,
+                    texto_respuesta: respuesta.texto
                   }));
 
                   resolve({ ...pregunta, respuestas });
@@ -792,7 +792,6 @@ function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idiom
     }
   );
 }
-
 
 
 
@@ -821,16 +820,14 @@ function getSituacionesAsignatura(profesor, asignatura, cod_pregunta, idioma, ca
           }
         });
 
-        // Convertir objeto agrupado en un array de resultados
-        for (const year in groupedResults) {
-          results.push(groupedResults[year]);
-        }
+        // Convertir objeto agrupado en un array de resultados y ordenarlo
+        const sortedResults = Object.values(groupedResults).sort((a, b) => a.año_curso.localeCompare(b.año_curso));
 
         // Llamar a getResultadosPregunta por cada situación docente
-        const totalResults = results.length;
+        const totalResults = sortedResults.length;
         let processedResults = 0;
 
-        results.forEach((result) => {
+        sortedResults.forEach((result) => {
           getResultadosPregunta(cod_pregunta, result.cod_situacion_docente, idioma, (err, preguntaResult) => {
             if (!err) {
               result.respuestas = preguntaResult.respuestas;
@@ -841,7 +838,7 @@ function getSituacionesAsignatura(profesor, asignatura, cod_pregunta, idioma, ca
 
             processedResults++;
             if (processedResults === totalResults) {
-              callback(null, results);
+              callback(null, sortedResults);
             }
           });
         });
@@ -851,6 +848,7 @@ function getSituacionesAsignatura(profesor, asignatura, cod_pregunta, idioma, ca
     }
   );
 }
+
 
 
 
@@ -902,7 +900,7 @@ function getResultadosPregunta(cod_pregunta, cod_situacion_docente, idioma, call
 
 // ---------- getters de la media de un conjunto de situaciones docnetyes para la comparativa de informes ----------
 
-function getMediaAsignatura(cod_asignatura, cod_encuesta, idioma, callback) {
+function getMediaAsignaturaHistorico(cod_asignatura, cod_encuesta, idioma, callback) {
   mysqlConnection.query(
     `SELECT cod_situacion_docente
     FROM situacion_docente
@@ -919,13 +917,16 @@ function getMediaAsignatura(cod_asignatura, cod_encuesta, idioma, callback) {
   );
 }
 
-function getMediaGrupo(cod_grupo, cod_encuesta, idioma, callback) {
-
+function getMediaAsignatura(año_curso, cod_asignatura, cod_encuesta, idioma, callback) {
   mysqlConnection.query(
     `SELECT cod_situacion_docente
     FROM situacion_docente
-    WHERE cod_grupo = ?`,
-    [cod_grupo],
+    WHERE cod_asignatura = ? AND cod_campana IN (
+      SELECT cod_campana
+      FROM campana
+      WHERE año_curso = ?
+    )`,
+    [cod_asignatura, año_curso],
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
@@ -937,13 +938,18 @@ function getMediaGrupo(cod_grupo, cod_encuesta, idioma, callback) {
   );
 }
 
-function getMediaDepartamento(cod_departamento, cod_encuesta, idioma, callback) {
+
+function getMediaGrupo(año_curso, cod_grupo, cod_encuesta, idioma, callback) {
 
   mysqlConnection.query(
     `SELECT cod_situacion_docente
     FROM situacion_docente
-    WHERE cod_departamento = ?`,
-    [cod_departamento],
+    WHERE cod_grupo = ? AND cod_campana IN (
+      SELECT cod_campana
+      FROM campana
+      WHERE año_curso = ?
+    )`,
+    [cod_grupo, año_curso],
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
@@ -955,12 +961,39 @@ function getMediaDepartamento(cod_departamento, cod_encuesta, idioma, callback) 
   );
 }
 
-function getMediaCurso(cod_curso, cod_encuesta, idioma, callback) {
+function getMediaDepartamento(año_curso, cod_departamento, cod_encuesta, idioma, callback) {
+  console.log(cod_departamento);
+  mysqlConnection.query(
+    `SELECT sd.cod_situacion_docente
+     FROM situacion_docente sd
+     INNER JOIN docente d ON sd.cod_docente = d.cod_docente
+     INNER JOIN departamento depto ON d.cod_depto = depto.cod_depto
+     INNER JOIN campana c ON sd.cod_campana = c.cod_campana
+     WHERE depto.cod_depto = ? AND c.año_curso = ?`,
+    [cod_departamento, año_curso],
+    (err, rows, fields) => {
+      if (!err) {
+        const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
+        console.log(situacionesDocentes);
+        getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback);
+      } else {
+        callback(err);
+      }
+    }
+  );
+}
+
+
+function getMediaCurso(año_curso, cod_curso, cod_encuesta, idioma, callback) {
   mysqlConnection.query(
     `SELECT cod_situacion_docente
     FROM situacion_docente
-    WHERE num_curso = ?`,
-    [cod_curso],
+    WHERE num_curso = ? AND cod_campana IN (
+      SELECT cod_campana
+      FROM campana
+      WHERE año_curso = ?
+    )`,
+    [cod_curso, año_curso],
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
@@ -972,12 +1005,16 @@ function getMediaCurso(cod_curso, cod_encuesta, idioma, callback) {
   );
 }
 
-function getMediaTitulacion(cod_titulacion, cod_encuesta, idioma, callback) {
+function getMediaTitulacion(año_curso, cod_titulacion, cod_encuesta, idioma, callback) {
   mysqlConnection.query(
     `SELECT cod_situacion_docente
     FROM situacion_docente
-    WHERE cod_grado = ?`,
-    [cod_titulacion],
+    WHERE cod_grado = ? AND cod_campana IN (
+      SELECT cod_campana
+      FROM campana
+      WHERE año_curso = ?
+    )`,
+    [cod_titulacion, año_curso],
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
@@ -989,12 +1026,16 @@ function getMediaTitulacion(cod_titulacion, cod_encuesta, idioma, callback) {
   );
 }
 
-function getMediaCentro(cod_centro, cod_encuesta, idioma, callback) {
+function getMediaCentro(año_curso, cod_centro, cod_encuesta, idioma, callback) {
   mysqlConnection.query(
     `SELECT cod_situacion_docente
     FROM situacion_docente
-    WHERE cod_centro = ?`,
-    [cod_centro],
+    WHERE cod_centro = ? AND cod_campana IN (
+      SELECT cod_campana
+      FROM campana
+      WHERE año_curso = ?
+    )`,
+    [cod_centro, año_curso],
     (err, rows, fields) => {
       if (!err) {
         const situacionesDocentes = rows.map((row) => row.cod_situacion_docente);
@@ -1082,7 +1123,7 @@ function getMediasGeneral(cod_encuesta, situacionesDocentes, idioma, callback) {
 
 //---------------------------------- admins ----------------------------------------------
 
-function getCampannasValidasAdmin(año_curso, ratio_respuestas, callback) {
+function getCampannasValidasAdmin(cod_campana, ratio_respuestas, callback) {
   const currentDate = new Date().toLocaleString('es-ES', {
     timeZone: 'Europe/Madrid',
     year: 'numeric',
@@ -1106,8 +1147,8 @@ function getCampannasValidasAdmin(año_curso, ratio_respuestas, callback) {
     ) ac_latest ON sd.cod_situacion_docente = ac_latest.cod_situacion_docente
     LEFT JOIN activacion_campana ac ON ac_latest.cod_situacion_docente = ac.cod_situacion_docente AND ac_latest.max_fecha_hora_ini = ac.fecha_hora_ini`;
 
-  if (año_curso !== '*') {
-    query += ` WHERE c.año_curso = ?`;
+  if (cod_campana !== '*') {
+    query += ` WHERE c.cod_campana = ?`;
   }
 
   query += `
@@ -1120,7 +1161,7 @@ function getCampannasValidasAdmin(año_curso, ratio_respuestas, callback) {
       c.fecha_fin ASC
   `;
 
-  const queryParams = (año_curso !== '*') ? [año_curso] : [];
+  const queryParams = (cod_campana !== '*') ? [cod_campana] : [];
 
   mysqlConnection.query(query, queryParams, (err, rows, fields) => {
     if (!err) {
@@ -1172,19 +1213,21 @@ function getCampannasValidasAdmin(año_curso, ratio_respuestas, callback) {
 
 
 
+
 function getAnnosCursos(callback) {
   mysqlConnection.query(
-    'SELECT DISTINCT año_curso FROM campana',
+    'SELECT cod_campana, nombre, año_curso FROM campana',
     (err, rows, fields) => {
       if (!err && rows.length > 0) {
-        const años = rows.map(row => row.año_curso);
-        callback(null, años);
+        const cursos = rows.map(row => ({ nombre: row.nombre, año_curso: row.año_curso, cod_campana: row.cod_campana}));
+        callback(null, cursos);
       } else {
         callback(err);
       }
     }
   );
 }
+
 
 
 function activarCampannaAdminConMensaje(situacion, fechaHoraFinActivacion, callback) {
@@ -1283,6 +1326,7 @@ module.exports = {
   getResultadosInformePersonal,
   getSituacionesAsignatura,
   getResultadosPregunta,
+  getMediaAsignaturaHistorico,
   getMediaAsignatura,
   getMediaGrupo,
   getMediaDepartamento,

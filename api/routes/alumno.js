@@ -67,18 +67,6 @@ router.post('/getSDsAlumno', (req, res) => {
   });
 });
 
-// metodo que verifica si la campaña de una situacion docente es activa
-router.post('/isActiva', (req, res) => {
-  const { cod_situacion_docente } = req.body;
-
-  mysqlConnection.isActiva(cod_situacion_docente, (err, isActive) => {
-    if (!err) {
-      res.json(isActive);
-    } else {
-      res.json(err);
-    }
-  });
-});
 
 
 // metodo que obtiene las respuestas de una encuesta

@@ -7,9 +7,9 @@ const config = require('../../config'); // Importa la configuración desde confi
 
 router.post('/getCampannas', (req, res) => {
 
-  const { ratio_respuestas, año_curso } = req.body;
+  const { cod_campana, ratio_respuestas } = req.body;
   
-    dbQuery.getCampannasValidasAdmin(año_curso, ratio_respuestas, (err, campannas) => {
+    dbQuery.getCampannasValidasAdmin(cod_campana, ratio_respuestas, (err, campannas) => {
       if (!err) {
         res.json(campannas);
       } else {

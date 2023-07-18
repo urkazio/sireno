@@ -205,7 +205,7 @@ router.post('/getResultadosInformePersonal', (req, res) => {
               (resp) => resp.cod_respuesta === cod_respuesta
             );
             if (respuestaIndex === -1) {
-              jsonResult[cod_pregunta].respuestas.push({ cod_respuesta, cuantos: r.cuantos });
+              jsonResult[cod_pregunta].respuestas.push({ cod_respuesta, cuantos: r.cuantos, texto_respuesta: r.texto_respuesta });
             } else {
               jsonResult[cod_pregunta].respuestas[respuestaIndex].cuantos += r.cuantos;
             }
@@ -237,7 +237,6 @@ router.post('/getResultadosInformePersonal', (req, res) => {
       res.status(500).json({ error: 'Error al obtener los resultados del informe personal' });
     });
 });
-
 
 
 router.post('/getAsignaturasPublicadas', (req, res) => {
@@ -316,10 +315,22 @@ router.post('/getHistoricoPregunta', (req, res) => {
 
 // ---------- getters de la media de un conjunto de situaciones docnetyes para la comparativa de informes ----------
 
-router.post('/getMediaAsignatura', (req, res) => {
-  const { cod_asignatura, cod_encuesta, idioma } = req.body;
+router.post('/getMediaAsignaturaHistorico', (req, res) => {
+  const {cod_asignatura, cod_encuesta, idioma } = req.body;
 
-  dbQuery.getMediaAsignatura(cod_asignatura, cod_encuesta, idioma,(err, campannas) => {
+  dbQuery.getMediaAsignaturaHistorico(cod_asignatura, cod_encuesta, idioma,(err, campannas) => {
+    if (!err) {
+      res.json(campannas);
+    } else {
+      res.json(err);
+    }
+  });
+});
+
+router.post('/getMediaAsignatura', (req, res) => {
+  const { año_curso, cod_asignatura, cod_encuesta, idioma } = req.body;
+
+  dbQuery.getMediaAsignatura(año_curso, cod_asignatura, cod_encuesta, idioma,(err, campannas) => {
     if (!err) {
       res.json(campannas);
     } else {
@@ -329,9 +340,9 @@ router.post('/getMediaAsignatura', (req, res) => {
 });
 
 router.post('/getMediaGrupo', (req, res) => {
-  const { cod_grupo, cod_encuesta, idioma } = req.body;
+  const { año_curso, cod_grupo, cod_encuesta, idioma } = req.body;
 
-  dbQuery.getMediaGrupo(cod_grupo, cod_encuesta, idioma, (err, campannas) => {
+  dbQuery.getMediaGrupo(año_curso, cod_grupo, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
       res.json(campannas);
     } else {
@@ -341,9 +352,9 @@ router.post('/getMediaGrupo', (req, res) => {
 });
 
 router.post('/getMediaDepartamento', (req, res) => {
-  const { cod_departamento, cod_encuesta, idioma } = req.body;
+  const { año_curso, cod_departamento, cod_encuesta, idioma } = req.body;
 
-  dbQuery.getMediaDepartamento(cod_departamento, cod_encuesta, idioma, (err, campannas) => {
+  dbQuery.getMediaDepartamento(año_curso, cod_departamento, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
       res.json(campannas);
     } else {
@@ -353,9 +364,9 @@ router.post('/getMediaDepartamento', (req, res) => {
 });
 
 router.post('/getMediaCurso', (req, res) => {
-  const { cod_curso, cod_encuesta, idioma } = req.body;
+  const { año_curso, cod_curso, cod_encuesta, idioma } = req.body;
 
-  dbQuery.getMediaCurso(cod_curso, cod_encuesta, idioma, (err, campannas) => {
+  dbQuery.getMediaCurso(año_curso, cod_curso, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
       res.json(campannas);
     } else {
@@ -365,9 +376,9 @@ router.post('/getMediaCurso', (req, res) => {
 });
 
 router.post('/getMediaTitulacion', (req, res) => {
-  const { cod_titulacion, cod_encuesta, idioma } = req.body;
+  const { año_curso, cod_titulacion, cod_encuesta, idioma } = req.body;
 
-  dbQuery.getMediaTitulacion(cod_titulacion, cod_encuesta, idioma, (err, campannas) => {
+  dbQuery.getMediaTitulacion(año_curso, cod_titulacion, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
       res.json(campannas);
     } else {
@@ -377,9 +388,9 @@ router.post('/getMediaTitulacion', (req, res) => {
 });
 
 router.post('/getMediaCentro', (req, res) => {
-  const { cod_centro, cod_encuesta, idioma } = req.body;
+  const { año_curso, cod_centro, cod_encuesta, idioma } = req.body;
 
-  dbQuery.getMediaCentro(cod_centro, cod_encuesta, idioma, (err, campannas) => {
+  dbQuery.getMediaCentro(año_curso, cod_centro, cod_encuesta, idioma, (err, campannas) => {
     if (!err) {
       res.json(campannas);
     } else {
