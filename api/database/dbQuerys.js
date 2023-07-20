@@ -747,7 +747,7 @@ function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idiom
                     respuestas[index].cuantos = respuesta.cuantos;
                   });
 
-                  resolve({ ...pregunta, respuestas });
+                  resolve({ ...pregunta, respuestas: respuestas.sort((a, b) => a.cod_respuesta - b.cod_respuesta) });
                 }
               }
             );
@@ -756,7 +756,7 @@ function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idiom
           // Pregunta verbal, obtener las respuestas de respuesta_verbal y texto_respuesta en el idioma especificado
           return new Promise((resolve, reject) => {
             mysqlConnection.query(
-              `SELECT tr.cod_respuesta_verbal, tr.texto, IFNULL(rva.cuantos, 0) AS cuantos
+              `SELECT rv.cod_respuesta_verbal, tr.texto, IFNULL(rva.cuantos, 0) AS cuantos
               FROM respuesta_verbal rv
               JOIN texto_respuesta tr ON rv.cod_respuesta_verbal = tr.cod_respuesta_verbal
               LEFT JOIN respuesta_verbal_alumnos rva ON rva.cod_respuesta_verbal = tr.cod_respuesta_verbal AND rva.cod_situacion_docente = ?
@@ -767,13 +767,43 @@ function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idiom
                 if (err) {
                   reject(err);
                 } else {
-                  const respuestas = rows.map((respuesta) => ({
-                    cod_respuesta: respuesta.cod_respuesta_verbal,
-                    cuantos: respuesta.cuantos || 0,
-                    texto_respuesta: respuesta.texto
-                  }));
+                  const respuestas = [];
 
-                  resolve({ ...pregunta, respuestas });
+                  rows.forEach((respuesta) => {
+                    respuestas.push({
+                      cod_respuesta: respuesta.cod_respuesta_verbal,
+                      cuantos: respuesta.cuantos || 0,
+                      texto_respuesta: respuesta.texto
+                    });
+                  });
+
+                  // Obtener todas las respuestas posibles para la pregunta y establecer cuantos en 0 si no hay respuesta
+                  mysqlConnection.query(
+                    `SELECT tr.cod_respuesta_verbal, tr.texto
+                    FROM texto_respuesta tr
+                    LEFT JOIN respuesta_verbal rv ON rv.cod_respuesta_verbal = tr.cod_respuesta_verbal
+                    WHERE rv.cod_pregunta = ? AND tr.cod_idioma = ?`,
+                    [row.cod_pregunta, idioma],
+                    (err, rows, fields) => {
+                      if (err) {
+                        reject(err);
+                      } else {
+                        rows.forEach((respuesta) => {
+                          const codRespuesta = respuesta.cod_respuesta_verbal;
+                          const respuestaExistente = respuestas.find((r) => r.cod_respuesta === codRespuesta);
+                          if (!respuestaExistente) {
+                            respuestas.push({
+                              cod_respuesta: codRespuesta,
+                              cuantos: 0,
+                              texto_respuesta: respuesta.texto
+                            });
+                          }
+                        });
+
+                        resolve({ ...pregunta, respuestas: respuestas.sort((a, b) => a.cod_respuesta.localeCompare(b.cod_respuesta)) });
+                      }
+                    }
+                  );
                 }
               }
             );
@@ -792,6 +822,8 @@ function getResultadosInformePersonal(cod_encuesta, cod_situacion_docente, idiom
     }
   );
 }
+
+
 
 
 
