@@ -157,10 +157,9 @@ router.post("/mandarMensajeApertura", (req, res) => {
           pass: config.pass_email // Utiliza la contraseña desde config.js
         }
       });
-      console.log(correos)
+
       // Iterar sobre cada correo electrónico y enviar el mensaje
       correos.forEach((correo) => {
-        console.log(correo)
         const mailOptions = {
           from: 'urkogarcia12@gmail.com', // Dirección de correo electrónico remitente
           to: correo,
