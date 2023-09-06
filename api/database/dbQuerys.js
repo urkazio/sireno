@@ -52,20 +52,21 @@ function getRole(user, callback) {
 
 
 function getCampanasValidasPorUsuario(usuario, callback) {
+  console.log(usuario)
   const query = `
-    SELECT c.cod_campana, c.nombre, c.fecha_fin, sd.activada, c.cod_encuesta,
-           sd.cod_situacion_docente, sd.cod_asignatura, a.nombre_asignatura, sd.cod_docente, d.nombre_docente,
-           sd.num_curso, c.año_curso, ac.fecha_hora_cierre
-    FROM campana AS c
-    JOIN situacion_docente AS sd ON c.cod_campana = sd.cod_campana
-    JOIN alumno_situacion_doc AS asd ON sd.cod_situacion_docente = asd.cod_situacion_docente
-    JOIN asignatura AS a ON sd.cod_asignatura = a.cod_asignatura
-    JOIN docente AS d ON sd.cod_docente = d.cod_docente
-    LEFT JOIN activacion_campana AS ac ON sd.cod_situacion_docente = ac.cod_situacion_docente
-    WHERE asd.cod_alumno = ?
-    AND c.fecha_ini <= NOW()
-    AND (sd.activada = 0 AND c.fecha_fin >= NOW() OR sd.activada >= 1 AND ac.fecha_hora_cierre >= NOW())
-  `;
+  SELECT c.cod_campana, c.nombre, c.fecha_fin, sd.activada, c.cod_encuesta,
+  sd.cod_situacion_docente, sd.cod_asignatura, a.nombre_asignatura, sd.cod_docente, d.nombre_docente,
+  sd.num_curso, c.año_curso, ac.fecha_hora_cierre
+FROM campana AS c
+JOIN situacion_docente AS sd ON c.cod_campana = sd.cod_campana
+JOIN alumno_situacion_doc AS asd ON sd.cod_situacion_docente = asd.cod_situacion_docente
+JOIN asignatura AS a ON sd.cod_asignatura = a.cod_asignatura
+JOIN docente AS d ON sd.cod_docente = d.cod_docente
+LEFT JOIN activacion_campana AS ac ON sd.cod_situacion_docente = ac.cod_situacion_docente
+WHERE asd.cod_alumno = ?
+AND c.fecha_ini <= NOW()
+AND (sd.activada = 0 AND c.fecha_fin >= NOW() OR sd.activada >= 1 AND ac.fecha_hora_cierre >= NOW())
+GROUP BY asd.cod_alumno, c.cod_campana;`;
 
   mysqlConnection.query(query, [usuario], (err, rows, fields) => {
     if (!err) {
@@ -86,7 +87,7 @@ function getCampanasValidasPorUsuario(usuario, callback) {
           fecha_fin_activacion: row.fecha_hora_cierre
         };
       });
-      
+      console.log("Tamaño de campanasValidas:", campanasValidas.length);
       callback(null, campanasValidas);
     } else {
       callback(err);
